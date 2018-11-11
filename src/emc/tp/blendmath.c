@@ -446,7 +446,13 @@ int calculateInscribedDiameter(PmCartesian const * const normal,
     PmCartesian planar_x,planar_y,planar_z;
 
     //Find perpendicular component of unit directions
-    // FIXME use plane project?
+    // FIXME Assumes normal is unit length
+    
+    /* This section projects the X / Y / Z unit vectors onto the plane
+     * containing the motions. The operation is done "backwards" here due to a
+     * quirk with posemath. 
+     *
+     */
     pmCartScalMult(normal, -normal->x, &planar_x);
     pmCartScalMult(normal, -normal->y, &planar_y);
     pmCartScalMult(normal, -normal->z, &planar_z);
@@ -647,9 +653,15 @@ int blendParamKinematics(BlendGeom3 * const geom,
     tp_debug_print("a_max = %f, a_n_max = %f\n", param->a_max,
             param->a_n_max);
 
-    // Find common velocity and acceleration
-    param->v_req = fmax(prev_tc->reqvel, tc->reqvel);
-    param->v_goal = param->v_req * maxFeedScale;
+    // Find the nominal velocity for the blend segment with no overrides
+    double v_req_prev = tcGetMaxTargetVel(prev_tc, 1.0);
+    double v_req_this = tcGetMaxTargetVel(tc, 1.0);
+    tp_debug_print("vr_prev = %f, vr_this = %f\n", v_req_prev, v_req_this);
+    param->v_req = fmax(v_req_prev, v_req_this);
+
+    // Find the worst-case velocity we should reach for either segment
+    param->v_goal = fmax(tcGetMaxTargetVel(prev_tc, maxFeedScale),
+            tcGetMaxTargetVel(tc, maxFeedScale));
 
     // Calculate the maximum planar velocity
     double v_planar_max;
@@ -693,7 +705,6 @@ int blendParamKinematics(BlendGeom3 * const geom,
     tp_debug_print("v_max = %f\n", v_max);
     param->v_goal = fmin(param->v_goal, v_max);
 
-    tp_debug_print("vr1 = %f, vr2 = %f\n", prev_tc->reqvel, tc->reqvel);
     tp_debug_print("v_goal = %f, max scale = %f\n", param->v_goal, maxFeedScale);
 
     return res_dia;
@@ -887,7 +898,7 @@ int blendInit3FromArcLine(BlendGeom3 * const geom, BlendParameters * const param
 
 
 /**
- * Setup blend paramaters based on two circular arc segments.
+ * Setup blend parameters based on two circular arc segments.
  * This function populates the geom structure and "input" fields of
  * the blend parameter structure. It returns an error if the segments
  * are not coplanar, or if one or both segments is not a circular arc.
@@ -1029,7 +1040,7 @@ int blendInit3FromArcArc(BlendGeom3 * const geom, BlendParameters * const param,
 }
 
 /**
- * Setup blend paramaters based on two linear segments.
+ * Setup blend parameters based on two linear segments.
  * This function populates the geom structure and "input" fields of the blend parameter structure based.
  * @param geom Stores simplified geometry used to calculate blend params.
  * @param param Abstracted parameters for blending calculations

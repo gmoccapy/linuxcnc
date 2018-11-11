@@ -1565,10 +1565,10 @@ class gmoccapy(object):
                 self.widgets.tbtn_mist.set_image(self.widgets.img_mist_off)
 
     def _update_halui_pin(self):
-        if self.spindle_override != self.stat.spindlerate:
+        if self.spindle_override != self.stat.spindle[0]['override']:
             self.initialized = False
-            self.widgets.spc_spindle.set_value(self.stat.spindlerate * 100)
-            self.spindle_override = self.stat.spindlerate
+            self.widgets.spc_spindle.set_value(self.stat.spindle[0]['override'] * 100)
+            self.spindle_override = self.stat.spindle[0]['override']
             self.initialized = True
         if self.feed_override != self.stat.feedrate:
             self.initialized = False
@@ -1579,6 +1579,8 @@ class gmoccapy(object):
             self.initialized = False
             self.widgets.spc_rapid.set_value(self.stat.rapidrate * 100)
             self.rapidrate = self.stat.rapidrate
+            self.widgets.adj_max_vel.set_value( self.stat.max_velocity * 60 * self.faktor )
+            self.max_velocity = self.stat.max_velocity
             self.initialized = True
 
     def _update_slider(self, widgetlist):
@@ -1687,10 +1689,15 @@ class gmoccapy(object):
             # machine units = imperial
             else:
                 self.faktor = 25.4
-            self._update_slider(widgetlist)
+            self.turtle_jog = self.turtle_jog * self.faktor
+            self.rabbit_jog = self.rabbit_jog * self.faktor
+            self._update_slider( widgetlist )
+
         else:
             # display units equal machine units would be factor = 1,
             # but if factor not equal 1.0 than we have to reconvert from previous first
+            self.turtle_jog = self.turtle_jog / self.faktor
+            self.rabbit_jog = self.rabbit_jog / self.faktor
             if self.faktor != 1.0:
                 self.faktor = 1 / self.faktor
                 self._update_slider(widgetlist)
@@ -1984,32 +1991,32 @@ class gmoccapy(object):
 # spindle stuff
 
     def _update_spindle(self):
-        if self.stat.spindle_direction > 0:
+        if self.stat.spindle[0]['direction'] > 0:
             self.widgets.rbt_forward.set_active(True)
-        elif self.stat.spindle_direction < 0:
+        elif self.stat.spindle[0]['direction'] < 0:
             self.widgets.rbt_reverse.set_active(True)
         elif not self.widgets.rbt_stop.get_active():
             self.widgets.rbt_stop.set_active(True)
 
         # this is needed, because otherwise a command S0 would not set active btn_stop
-        if not abs(self.stat.spindle_speed):
+        if not abs(self.stat.spindle[0]['speed']):
             self.widgets.rbt_stop.set_active(True)
             return
 
         # set the speed label in active code frame
-        if self.stat.spindle_speed == 0:
+        if self.stat.spindle[0]['speed'] == 0:
             speed = self.stat.settings[2]
         else:
-            speed = self.stat.spindle_speed
+            speed = self.stat.spindle[0]['speed']
         self.widgets.active_speed_label.set_label("{0:.0f}".format(abs(speed)))
         self.widgets.lbl_spindle_act.set_text("S {0}".format(int(speed * self.spindle_override)))
 
     def _update_vc(self):
-        if self.stat.spindle_direction != 0:
-            if self.stat.spindle_speed == 0:
+        if self.stat.spindle[0]['direction'] != 0:
+            if self.stat.spindle[0]['speed'] == 0:
                 speed = self.stat.settings[2]
             else:
-                speed = self.stat.spindle_speed
+                speed = self.stat.spindle[0]['speed']
             if not self.lathe_mode:
                 diameter = self.halcomp["tool-diameter"]
             else:
@@ -2057,11 +2064,11 @@ class gmoccapy(object):
         # be setted to the commanded value due the next code part
         if self.stat.task_mode != linuxcnc.MODE_MANUAL:
             if self.stat.interp_state == linuxcnc.INTERP_READING or self.stat.interp_state == linuxcnc.INTERP_WAITING:
-                if self.stat.spindle_direction > 0:
+                if self.stat.spindle[0]['direction'] > 0:
                     self.widgets.rbt_forward.set_sensitive(True)
                     self.widgets.rbt_reverse.set_sensitive(False)
                     self.widgets.rbt_stop.set_sensitive(False)
-                elif self.stat.spindle_direction < 0:
+                elif self.stat.spindle[0]['direction'] < 0:
                     self.widgets.rbt_forward.set_sensitive(False)
                     self.widgets.rbt_reverse.set_sensitive(True)
                     self.widgets.rbt_stop.set_sensitive(False)
@@ -2076,7 +2083,7 @@ class gmoccapy(object):
         # we take care of that but we have to check for speed override 
         # to not be zero to avoid division by zero error
         try:
-            rpm_out = rpm / self.stat.spindlerate
+            rpm_out = rpm / self.stat.spindle[0]['override']
         except:
             rpm_out = 0
         self.widgets.lbl_spindle_act.set_label("S {0}".format(int(rpm)))
@@ -2118,11 +2125,11 @@ class gmoccapy(object):
         try:
             if not abs(self.stat.settings[2]):
                 if self.widgets.rbt_forward.get_active() or self.widgets.rbt_reverse.get_active():
-                    speed = self.stat.spindle_speed
+                    speed = self.stat.spindle[0]['speed']
                 else:
                     speed = 0
             else:
-                speed = abs(self.stat.spindle_speed)
+                speed = abs(self.stat.spindle[0]['speed'])
             spindle_override = value / 100
             real_spindle_speed = speed * spindle_override
             if real_spindle_speed > self.max_spindle_rev:
@@ -2230,7 +2237,55 @@ class gmoccapy(object):
         elif self.stat.task_mode == linuxcnc.MODE_AUTO:
             self.widgets.gcode_view.grab_focus()
 
+    # Three back buttons to be able to leave notebook pages
+    # All use the same callback offset
+    def on_btn_back_clicked(self, widget, data=None):
+        if self.widgets.ntb_button.get_current_page() == _BB_EDIT:  # edit mode, go back to auto_buttons
+            self.widgets.ntb_button.set_current_page(_BB_AUTO)
+            if self.widgets.tbtn_fullsize_preview1.get_active():
+                self.widgets.vbx_jog.set_visible(False)
+        elif self.widgets.ntb_button.get_current_page() == _BB_LOAD_FILE:  # File selection mode
+            self.widgets.ntb_button.set_current_page(_BB_AUTO)
+        else:  # else we go to main button on manual
+            self.widgets.ntb_button.set_current_page(_BB_MANUAL)
+            self.widgets.ntb_main.set_current_page(0)
+            self.widgets.ntb_preview.set_current_page(0)
 
+    # The offset settings, set to zero
+    def on_btn_touch_clicked(self, widget, data=None):
+        self.widgets.ntb_button.set_current_page(_BB_TOUCH_OFF)
+        self._show_offset_tab(True)
+        if self.widgets.rbtn_show_preview.get_active():
+            self.widgets.ntb_preview.set_current_page(0)
+
+    def on_tbtn_edit_offsets_toggled(self, widget, data=None):
+        state = widget.get_active()
+        self.widgets.offsetpage1.edit_button.set_active(state)
+        widgetlist = ["btn_set_value_x", "btn_set_value_y", "btn_set_value_z", 
+                      "btn_set_selected", "ntb_jog", "btn_set_selected", 
+                      "btn_zero_g92"
+                      ]
+        self._sensitize_widgets(widgetlist, not state)
+
+        if state:
+            self.widgets.ntb_preview.set_current_page(1)
+        else:
+            self.widgets.ntb_preview.set_current_page(0)
+
+        # we have to replace button calls in our list to make all hardware button
+        # activate the correct button call
+        if state and self.widgets.chk_use_tool_measurement.get_active():
+            self.widgets.btn_zero_g92.show()
+            self.widgets.btn_block_height.hide()
+            self._replace_list_item(4, "btn_block_height", "btn_zero_g92")
+        elif not state and self.widgets.chk_use_tool_measurement.get_active():
+            self.widgets.btn_zero_g92.hide()
+            self.widgets.btn_block_height.show()
+            self._replace_list_item(4, "btn_zero_g92", "btn_block_height")
+
+        if not state:  # we must switch back to manual mode, otherwise jogging is not possible
+            self.command.mode(linuxcnc.MODE_MANUAL)
+            self.command.wait_complete()
 
     def on_btn_zero_g92_clicked(self, widget, data=None):
         self.command.mode(linuxcnc.MODE_MDI)
