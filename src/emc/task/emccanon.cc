@@ -1836,9 +1836,8 @@ void START_SPINDLE_COUNTERCLOCKWISE(int s, int wait_for_atspeed)
 void SET_SPINDLE_SPEED(int s, double r)
 {
     // speed is in RPMs everywhere
-    for (int i = 0; i < 3; i++) {printf("Before: spindle %i speed %f\n", i, canon.spindle[i].speed) ;}
+
 	canon.spindle[s].speed = fabs(r); // interp will never send negative anyway ...
-    for (int i = 0; i < 3; i++) {printf("After: spindle %i speed %f\n", i, canon.spindle[i].speed) ;}
 
     EMC_SPINDLE_SPEED emc_spindle_speed_msg;
 
@@ -2572,6 +2571,19 @@ CANON_POSITION GET_EXTERNAL_POSITION()
 
     pos = emcStatus->motion.traj.position;
 
+    if (GET_EXTERNAL_OFFSET_APPLIED() ) {
+        EmcPose eoffset = GET_EXTERNAL_OFFSETS();
+        pos.tran.x -= eoffset.tran.x;
+        pos.tran.y -= eoffset.tran.y;
+        pos.tran.z -= eoffset.tran.z;
+        pos.a      -= eoffset.a;
+        pos.b      -= eoffset.b;
+        pos.c      -= eoffset.c;
+        pos.u      -= eoffset.u;
+        pos.v      -= eoffset.v;
+        pos.w      -= eoffset.w;
+    }
+
     // first update internal record of last position
     canonUpdateEndPoint(FROM_EXT_LEN(pos.tran.x), FROM_EXT_LEN(pos.tran.y), FROM_EXT_LEN(pos.tran.z),
                         FROM_EXT_ANG(pos.a), FROM_EXT_ANG(pos.b), FROM_EXT_ANG(pos.c),
@@ -2959,6 +2971,14 @@ int GET_EXTERNAL_FEED_HOLD_ENABLE()
 
 int GET_EXTERNAL_AXIS_MASK() {
     return emcStatus->motion.traj.axis_mask;
+}
+
+int GET_EXTERNAL_OFFSET_APPLIED(void) {
+    return emcGetExternalOffsetApplied();
+}
+
+EmcPose GET_EXTERNAL_OFFSETS() {
+    return emcGetExternalOffsets();
 }
 
 CANON_PLANE GET_EXTERNAL_PLANE()
