@@ -166,7 +166,7 @@ class GetIniInfo:
             for joint, axisletter in enumerate(["x", "y", "z", "a", "b", "c", "u", "v", "w"]):
                 if axisletter in coordinates:
                     joint_axis_dic[joint] = axisletter
-        print joint_axis_dic
+        #print joint_axis_dic
         #return sorted(joint_axis_dic, key=joint_axis_dic.get, reverse=False)
         return joint_axis_dic, double_axis_letter
 
@@ -434,3 +434,12 @@ class GetIniInfo:
                     return None
             messages = zip(message_text, message_type, message_pinname)
             return messages
+
+    def get_machine_units(self):#
+        units = self.inifile.findall("TRAJ", "LINEAR_UNITS")
+        if units == "mm" or units == "cm" or units == "inch":
+            return units
+        else:
+            print("**** GMOCCAPY GETINIINFO **** \nERROR getting machine units \n"
+                  "please check [TRAJ] LINEAR_UNITS for a valid entry")
+            return None

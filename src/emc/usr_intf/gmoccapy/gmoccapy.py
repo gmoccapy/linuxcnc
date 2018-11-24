@@ -32,8 +32,8 @@ import hal_glib            # needed to make our own hal pins
 import gtk                 # base for pygtk widgets and constants
 import sys                 # handle system calls
 import os                  # needed to get the paths and directories
-import pango               # needed for font settings and changing
-import gladevcp.makepins   # needed for the dialog"s calculator widget
+#import pango               # needed for font settings and changing
+#import gladevcp.makepins   # needed for the dialog"s calculator widget
 import atexit              # needed to register child's to be closed on closing the GUI
 import subprocess          # to launch onboard and other processes
 import tempfile            # needed only if the user click new in edit mode to open a new empty file
@@ -42,10 +42,10 @@ import gobject             # needed to add the timer for periodic
 import locale              # for setting the language of the GUI
 import gettext             # to extract the strings to be translated
 
-from gladevcp.gladebuilder import GladeBuilder
+#from gladevcp.gladebuilder import GladeBuilder
 
 from time import strftime  # needed for the clock in the GUI
-from gtk._gtk import main_quit
+#from gtk._gtk import main_quit
 #from gi.overrides.Gtk import Widget
 
 # Throws up a dialog with debug info when an error is encountered
@@ -69,22 +69,22 @@ def excepthook(exc_type, exc_obj, exc_tb):
 
 sys.excepthook = excepthook
 
-debug = False
-
-if debug:
-    pydevdir = '/home/gmoccapy/Aptana_Studio_3/plugins/org.python.pydev_4.5.5.201603221110/pysrc'
-
-    if os.path.isdir(pydevdir):  # and  'emctask' in sys.builtin_module_names:
-        sys.path.append(pydevdir)
-        sys.path.insert(0, pydevdir)
-        try:
-            import pydevd
-
-            print("pydevd imported, connecting to Eclipse debug server...")
-            pydevd.settrace()
-        except:
-            print("no pydevd module found")
-            pass
+# debug = False
+#
+# if debug:
+#     pydevdir = '/home/gmoccapy/Aptana_Studio_3/plugins/org.python.pydev_4.5.5.201603221110/pysrc'
+#
+#     if os.path.isdir(pydevdir):  # and  'emctask' in sys.builtin_module_names:
+#         sys.path.append(pydevdir)
+#         sys.path.insert(0, pydevdir)
+#         try:
+#             import pydevd
+#
+#             print("pydevd imported, connecting to Eclipse debug server...")
+#             pydevd.settrace()
+#         except:
+#             print("no pydevd module found")
+#             pass
 
 # constants
 #         # gmoccapy  #"
@@ -126,6 +126,7 @@ try:
     _AUDIO_AVAILABLE = True
 except:
     pass
+
 # set up paths to files, part two
 CONFIGPATH = os.environ['CONFIG_DIR']
 DATADIR = os.path.join(BASE, "share", "gmoccapy")
@@ -150,19 +151,19 @@ INVISABLE = gtk.gdk.Cursor(pixmap, pixmap, color, color, 0, 0)
 
 class gmoccapy(object):
     def __init__(self, argv):
-        
+
         # prepare for translation / internationalization
         locale.setlocale(locale.LC_ALL, '')
         locale.bindtextdomain("gmoccapy", LOCALEDIR)
         gettext.install("gmoccapy", localedir=LOCALEDIR, unicode=True)
         gettext.bindtextdomain("gmoccapy", LOCALEDIR)
 
-        # needed components to comunicate with hal and linuxcnc
+        # needed components to communicate with hal and LinuxCNC
         self.halcomp = hal.component("gmoccapy")
         self.command = linuxcnc.command()
         self.stat = linuxcnc.stat()
-
         self.error_channel = linuxcnc.error_channel()
+
         # initial poll, so all is up to date
         self.stat.poll()
         self.error_channel.poll()
@@ -229,6 +230,8 @@ class gmoccapy(object):
         self.gui.connect("set_motion_mode", self._set_motion_mode)
         self.gui.connect("mdi_command", self._mdi_command)
         self.gui.connect("mdi_abort", self._mdi_abort)
+        self.gui.connect("jog_btn_pressed", self.on_btn_jog_pressed)
+        self.gui.connect("jog_btn_released", self.on_btn_jog_released)
         self.gui.connect("error", self._show_error)
         self.gui.connect("exit", self._exit)
 
@@ -290,7 +293,7 @@ class gmoccapy(object):
         self._init_tooleditor()
         self._init_themes()
         self._init_audio()
-        self._init_gremlin()
+        #self._init_gremlin()
         self._init_hide_cursor()
         self._init_offsetpage()
         self._init_keybindings()
@@ -684,18 +687,18 @@ class gmoccapy(object):
             self.widgets.audio_alert_chooser.set_sensitive(False)
             self.widgets.audio_error_chooser.set_sensitive(False)
 
-    # init the preview
-    def _init_gremlin( self ):
-        grid_size = self.prefs.getpref( 'grid_size', 1.0, float )
-        self.widgets.grid_size.set_value( grid_size )
-        self.widgets.gremlin.grid_size = grid_size
-        view = self.prefs.getpref( 'view', "p", str )
-        self.widgets.gremlin.set_property( "view", view )
-        self.widgets.gremlin.set_property( "metric_units", int( self.stat.linear_units ) )
-        self.widgets.gremlin.set_property( "mouse_btn_mode", self.prefs.getpref( "mouse_btn_mode", 4, int ) )
-        self.widgets.gremlin.set_property( "use_commanded", not self.dro_actual)
-        self.widgets.eb_program_label.modify_bg(gtk.STATE_NORMAL, gtk.gdk.Color(0, 0, 0))
-        self.widgets.eb_blockheight_label.modify_bg(gtk.STATE_NORMAL, gtk.gdk.Color(0, 0, 0))
+    # # init the preview
+    # def _init_gremlin( self ):
+    #     grid_size = self.prefs.getpref( 'grid_size', 1.0, float )
+    #     self.widgets.grid_size.set_value( grid_size )
+    #     self.widgets.gremlin.grid_size = grid_size
+    #     view = self.prefs.getpref( 'view', "p", str )
+    #     self.widgets.gremlin.set_property( "view", view )
+    #     self.widgets.gremlin.set_property( "metric_units", int( self.stat.linear_units ) )
+    #     self.widgets.gremlin.set_property( "mouse_btn_mode", self.prefs.getpref( "mouse_btn_mode", 4, int ) )
+    #     self.widgets.gremlin.set_property( "use_commanded", not self.dro_actual)
+    #     self.widgets.eb_program_label.modify_bg(gtk.STATE_NORMAL, gtk.gdk.Color(0, 0, 0))
+    #     self.widgets.eb_blockheight_label.modify_bg(gtk.STATE_NORMAL, gtk.gdk.Color(0, 0, 0))
 
 
 
@@ -1744,13 +1747,14 @@ class gmoccapy(object):
     def _on_turtle_jog_enable(self, pin):
         self.widgets.tbtn_turtle_jog.set_active(pin.get())
 
-    def on_btn_jog_pressed(self, widget, data=None):
+    def on_btn_jog_pressed(self, object, joint_or_axis, direction, shift=False):
+        print(self, object, joint_or_axis, direction, shift)
+
         # only in manual mode we will allow jogging the axis at this development state
         if not self.stat.enabled or self.stat.task_mode != linuxcnc.MODE_MANUAL:
             return
 
         joint_btn = False
-        joint_or_axis = widget.get_label()[0]
         if not joint_or_axis.lower() in "xyzabcuvw":
             # OK, it seems to be a Joints button
             if joint_or_axis in "012345678":
@@ -1762,30 +1766,28 @@ class gmoccapy(object):
         if not joint_btn:
             # get the axisnumber
             joint_axis_number = "xyzabcuvws".index(joint_or_axis.lower())
-            print joint_axis_number
         else:
             joint_axis_number = "01234567".index(joint_or_axis)
 
-        # if data = True, then the user pressed SHIFT for Jogging and
+        # if shift = True, then the user pressed SHIFT for Jogging and
         # want's to jog at full speed
-        if data:
+        if shift:
             value = self.stat.max_velocity
         else:
             value = self.widgets.spc_lin_jog_vel.get_value() / 60
 
         velocity = value * (1 / self.faktor)
 
-        dir = widget.get_label()[1]
-        if dir == "+":
-            direction = 1
+        if direction == "+":
+            dir = 1
         else:
-            direction = -1
+            dir = -1
 
         if self.stat.motion_mode == 1:
             if self.stat.kinematics_type == linuxcnc.KINEMATICS_IDENTITY:
                 # this may happen, because the joints / axes has been unhomed
                 print("wrong motion mode, change to the correct one")
-                self_set_motion_mode(1)
+                self._set_motion_mode(None, 1)
                 JOGMODE = 0
             else:
                 JOGMODE = 1
@@ -1793,17 +1795,16 @@ class gmoccapy(object):
             JOGMODE = 0
         
         if self.distance <> 0:  # incremental jogging
-            self.command.jog(linuxcnc.JOG_INCREMENT, JOGMODE, joint_axis_number, direction * velocity, self.distance)
+            self.command.jog(linuxcnc.JOG_INCREMENT, JOGMODE, joint_axis_number, dir * velocity, self.distance)
         else:  # continuous jogging
-            self.command.jog(linuxcnc.JOG_CONTINUOUS, JOGMODE, joint_axis_number, direction * velocity)
+            self.command.jog(linuxcnc.JOG_CONTINUOUS, JOGMODE, joint_axis_number, dir * velocity)
 
-    def on_btn_jog_released(self, widget, data=None):
+    def on_btn_jog_released(self, object, joint_or_axis, direction, shift=False):
         # only in manual mode we will allow jogging the axis at this development state
         if not self.stat.enabled or self.stat.task_mode != linuxcnc.MODE_MANUAL:
             return
 
         joint_btn = False
-        joint_or_axis = widget.get_label()[0]
         if not joint_or_axis.lower() in "xyzabcuvw":
             # OK, it may be a Joints button
             if joint_or_axis in "01234567":
@@ -1823,7 +1824,7 @@ class gmoccapy(object):
             if self.stat.kinematics_type == linuxcnc.KINEMATICS_IDENTITY:
                 # this may happen, because the joints / axes has been unhomed
                 print("wrong motion mode, change to the correct one")
-                self_set_motion_mode(1)
+                self._set_motion_mode(None, 1)
                 JOGMODE = 0
             else:
                 JOGMODE = 1
@@ -2916,10 +2917,8 @@ class gmoccapy(object):
             name = "{0}-".format(axis)
             
         widget = self.gui.jog_button_dic[name]
-        #widget = self.gui.get_widget_from_dic(self.gui.jog_button_dic, name)
-        
-        print("Found widget",widget)
-                
+
+
 #        children = self.widgets.hbtb_touch_off.get_children()
 #        for child in children:
 #            if child.name in self.gui.jog_button_dic:
@@ -3027,12 +3026,12 @@ class gmoccapy(object):
             pin = self.halcomp.newpin("jog.axis.jog-{0}-minus".format(jog_button), hal.HAL_BIT, hal.HAL_IN)
             hal_glib.GPin(pin).connect("value_changed", self._on_pin_jog_axis_changed, jog_button, -1)
 
-        if self.stat.kinematics_type != linuxcnc.KINEMATICS_IDENTITY:
-            for joint_button in range(0, self.stat.joints):
-                pin = self.halcomp.newpin("jog.joint.jog-{0}-plus".format(joint_button), hal.HAL_BIT, hal.HAL_IN)
-                hal_glib.GPin(pin).connect("value_changed", self._on_pin_jog_joint_changed, joint_button, 1)
-                pin = self.halcomp.newpin("jog.joint.jog-{0}-minus".format(joint_button), hal.HAL_BIT, hal.HAL_IN)
-                hal_glib.GPin(pin).connect("value_changed", self._on_pin_jog_joint_changed, joint_button, -1)
+#        if self.stat.kinematics_type != linuxcnc.KINEMATICS_IDENTITY:
+#            for joint_button in range(0, self.stat.joints):
+#                pin = self.halcomp.newpin("jog.joint.jog-{0}-plus".format(joint_button), hal.HAL_BIT, hal.HAL_IN)
+#                hal_glib.GPin(pin).connect("value_changed", self._on_pin_jog_joint_changed, joint_button, 1)
+#                pin = self.halcomp.newpin("jog.joint.jog-{0}-minus".format(joint_button), hal.HAL_BIT, hal.HAL_IN)
+#                hal_glib.GPin(pin).connect("value_changed", self._on_pin_jog_joint_changed, joint_button, -1)
 
         # jog_increment out pin
         self.halcomp.newpin("jog.jog-increment", hal.HAL_FLOAT, hal.HAL_OUT)
