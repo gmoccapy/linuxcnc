@@ -191,8 +191,8 @@ class gmoccapy(object):
         self.feed_override = 1    # holds the spindle override value and is needed to be able to react to halui pin
         self.rapidrate = 1        # holds the rapid override value and is needed to be able to react to halui pin
 
-        self.incr_rbt_list = []   # we use this list to add hal pin to the button later
-        self.jog_increments = []  # This holds the increment values
+        #self.incr_rbt_list = []   # we use this list to add hal pin to the button later
+        #self.jog_increments = []  # This holds the increment values
         self.unlock = False       # this value will be set using the hal pin unlock settings
 
         self.notification = notification.Notification()  # Our own message system
@@ -232,8 +232,9 @@ class gmoccapy(object):
         self.gui.connect("set_motion_mode", self._set_motion_mode)
         self.gui.connect("mdi_command", self._mdi_command)
         self.gui.connect("mdi_abort", self._mdi_abort)
-        self.gui.connect("jog_btn_pressed", self.on_btn_jog_pressed)
-        self.gui.connect("jog_btn_released", self.on_btn_jog_released)
+        self.gui.connect("jog_btn_pressed", self._on_btn_jog_pressed)
+        self.gui.connect("jog_btn_released", self._on_btn_jog_released)
+        self.gui.connect("jog_incr_changed", self._on_increment_changed)
         self.gui.connect("error", self._show_error)
         self.gui.connect("exit", self._exit)
 
@@ -274,8 +275,6 @@ class gmoccapy(object):
 
         self.axis_list = self.gui.axis_list
         self.joint_axis_dic = self.gui.joint_axis_dic
-
-        #self.active_increment, self.incr_rbt_list = self.gui._make_jog_increments(self.on_increment_changed)
 
         self._init_hal_pins()
 
@@ -1270,9 +1269,9 @@ class gmoccapy(object):
             else:
                 widget = self.widgets.btn_y_plus
             if signal:
-                self.on_btn_jog_pressed(widget, fast)
+                self._on_btn_jog_pressed(widget, fast)
             else:
-                self.on_btn_jog_released(widget)
+                self._on_btn_jog_released(widget)
         elif keyname == "Down" or keyname == "KP_Down":
             if self.gui.lathe_mode:
                 if self.backtool_lathe:
@@ -1282,39 +1281,39 @@ class gmoccapy(object):
             else:
                 widget = self.widgets.btn_y_minus
             if signal:
-                self.on_btn_jog_pressed(widget, fast)
+                self._on_btn_jog_pressed(widget, fast)
             else:
-                self.on_btn_jog_released(widget)
+                self._on_btn_jog_released(widget)
         elif keyname == "Left" or keyname == "KP_Left":
             if self.gui.lathe_mode:
                 widget = self.widgets.btn_z_minus
             else:
                 widget = self.widgets.btn_x_minus
             if signal:
-                self.on_btn_jog_pressed(widget, fast)
+                self._on_btn_jog_pressed(widget, fast)
             else:
-                self.on_btn_jog_released(widget)
+                self._on_btn_jog_released(widget)
         elif keyname == "Right" or keyname == "KP_Right":
             if self.gui.lathe_mode:
                 widget = self.widgets.btn_z_plus
             else:
                 widget = self.widgets.btn_x_plus
             if signal:
-                self.on_btn_jog_pressed(widget, fast)
+                self._on_btn_jog_pressed(widget, fast)
             else:
-                self.on_btn_jog_released(widget)
+                self._on_btn_jog_released(widget)
         elif keyname == "Page_Up" or keyname == "KP_Page_Up":
             widget = self.widgets.btn_z_plus
             if signal:
-                self.on_btn_jog_pressed(widget, fast)
+                self._on_btn_jog_pressed(widget, fast)
             else:
-                self.on_btn_jog_released(widget)
+                self._on_btn_jog_released(widget)
         elif keyname == "Page_Down" or keyname == "KP_Page_Down":
             widget = self.widgets.btn_z_minus
             if signal:
-                self.on_btn_jog_pressed(widget, fast)
+                self._on_btn_jog_pressed(widget, fast)
             else:
-                self.on_btn_jog_released(widget)
+                self._on_btn_jog_released(widget)
         elif keyname == "I" or keyname == "i":
             if signal:
                 if self.stat.state != 1:  # still moving
@@ -1322,20 +1321,20 @@ class gmoccapy(object):
                 # The active button name is hold in self.active_increment
                 if keyname == "I":
                     # so lets increment it by one
-                    rbt = int(self.active_increment[-1]) + 1
+                    rbt = int(self.gui.active_increment[-1]) + 1
                     # we check if we are still in the allowed limit
-                    if rbt > len(self.jog_increments) - 1:  # beginning from zero
+                    if rbt > len(self.gui.jog_increments) - 1:  # beginning from zero
                         rbt = 0
                 else:  # must be "i"
                     # so lets reduce it by one
-                    rbt = int(self.active_increment[-1]) - 1
+                    rbt = int(self.gui.active_increment[-1]) - 1
                     # we check if we are still in the allowed limit
                     if rbt < 0:
-                        rbt = len(self.jog_increments) - 1  # beginning from zero
+                        rbt = len(self.gui.jog_increments) - 1  # beginning from zero
                 # we set the corresponding button active
-                self.incr_rbt_list[rbt].set_active(True)
+                self.gui.incr_rbt_list[rbt].set_active(True)
                 # and we have to update all pin and variables
-                self.on_increment_changed(self.incr_rbt_list[rbt], self.jog_increments[rbt])
+                self._on_increment_changed(self.gui.jog_increments[rbt])
         else:
             print("This key has not been implemented yet")
             print "Key {0} ({1:d}) was pressed".format(keyname, event.keyval), signal, self.last_key_event
@@ -1357,16 +1356,17 @@ class gmoccapy(object):
         self.notification.set_property('top_to_bottom', True)
 
     # This is the jogging part
-    def on_increment_changed(self, widget=None, data=None):
+    def _on_increment_changed(self, sender, distance):
+        print( distance)
         if self.stat.interp_state != linuxcnc.INTERP_IDLE:
             return
 
-        if data == 0:
+        if distance == 0:
             self.distance = 0
         else:
-            self.distance = self._parse_increment(data)
+            self.distance = self._parse_increment(distance)
         self.halcomp["jog.jog-increment"] = self.distance
-        self.active_increment = widget.__name__
+        #self.gui.active_increment = widget.name
 
     def _from_internal_linear_unit(self, v, unit=None):
         if unit is None:
@@ -1375,6 +1375,7 @@ class gmoccapy(object):
         return v * lu
 
     def _parse_increment(self, jogincr):
+        print jogincr
         if jogincr.endswith("mm"):
             scale = self._from_internal_linear_unit(1 / 25.4)
         elif jogincr.endswith("cm"):
@@ -1755,7 +1756,7 @@ class gmoccapy(object):
     def _on_turtle_jog_enable(self, pin):
         self.widgets.tbtn_turtle_jog.set_active(pin.get())
 
-    def on_btn_jog_pressed(self, object, joint_or_axis, direction, shift=False):
+    def _on_btn_jog_pressed(self, object, joint_or_axis, direction, shift=False):
         print(self, object, joint_or_axis, direction, shift)
 
         # only in manual mode we will allow jogging the axis at this development state
@@ -1807,7 +1808,7 @@ class gmoccapy(object):
         else:  # continuous jogging
             self.command.jog(linuxcnc.JOG_CONTINUOUS, JOGMODE, joint_axis_number, dir * velocity)
 
-    def on_btn_jog_released(self, object, joint_or_axis, direction, shift=False):
+    def _on_btn_jog_released(self, object, joint_or_axis, direction, shift=False):
         # only in manual mode we will allow jogging the axis at this development state
         if not self.stat.enabled or self.stat.task_mode != linuxcnc.MODE_MANUAL:
             return
@@ -2167,12 +2168,6 @@ class gmoccapy(object):
             self.widgets.ntb_main.set_current_page(0)
             self.widgets.ntb_preview.set_current_page(0)
 
-    # The offset settings, set to zero
-    def on_btn_touch_clicked(self, widget, data=None):
-        self.widgets.ntb_button.set_current_page(_BB_TOUCH_OFF)
-        self._show_offset_tab(True)
-        if self.widgets.rbtn_show_preview.get_active():
-            self.widgets.ntb_preview.set_current_page(0)
 
     def on_tbtn_edit_offsets_toggled(self, widget, data=None):
         state = widget.get_active()
@@ -2907,9 +2902,9 @@ class gmoccapy(object):
             self.command.wait_complete()
         if not pin.get():
             return
-        data = self.jog_increments[int(buttonnumber)]
-        self.on_increment_changed(self.incr_rbt_list[int(buttonnumber)], data)
-        self.incr_rbt_list[int(buttonnumber)].set_active(True)
+        data = self.gui.jog_increments[int(buttonnumber)]
+        self._on_increment_changed(self.gui.incr_rbt_list[int(buttonnumber)], data)
+        self.gui.incr_rbt_list[int(buttonnumber)].set_active(True)
 
     def _on_pin_jog_axis_changed(self, pin, axis, direction):
         if self.stat.kinematics_type != linuxcnc.KINEMATICS_IDENTITY:
@@ -2942,9 +2937,9 @@ class gmoccapy(object):
 #        else:
 #            widget = self.widgets["{0}-".format(axis)]
 #        if pin.get():
-#            self.on_btn_jog_pressed(widget)
+#            self._on_btn_jog_pressed(widget)
 #        else:
-#            self.on_btn_jog_released(widget)
+#            self._on_btn_jog_released(widget)
 
     def _on_pin_jog_joint_changed(self, pin, joint, direction):
         if self.stat.motion_mode != 1 and pin.get():
@@ -2958,9 +2953,9 @@ class gmoccapy(object):
         else:
             widget = self.widgets["btn_j{0}_minus".format(str(joint))]
         if pin.get():
-            self.on_btn_jog_pressed(widget)
+            self._on_btn_jog_pressed(widget)
         else:
-            self.on_btn_jog_released(widget)
+            self._on_btn_jog_released(widget)
 
     def _reset_overide(self, pin, type):
         if pin.get():
@@ -3045,7 +3040,7 @@ class gmoccapy(object):
         self.halcomp.newpin("jog.jog-increment", hal.HAL_FLOAT, hal.HAL_OUT)
 
         # generate the pins to set the increments
-        for buttonnumber in range(0, len(self.jog_increments)):
+        for buttonnumber in range(0, len(self.gui.jog_increments)):
             pin = self.halcomp.newpin("jog.jog-inc-{0}".format(buttonnumber), hal.HAL_BIT, hal.HAL_IN)
             hal_glib.GPin(pin).connect("value_changed", self._on_pin_incr_changed, buttonnumber)
 

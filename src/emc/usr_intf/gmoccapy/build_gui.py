@@ -137,7 +137,8 @@ class Build_GUI(gobject.GObject):
                     'mdi_abort'       : (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ()),
                     'home_clicked'    : (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, (gobject.TYPE_PYOBJECT,)),
                     'unhome_clicked'  : (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, (gobject.TYPE_PYOBJECT,)),
-                    'jog_incr_changed': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, (gobject.TYPE_PYOBJECT,)),
+                    'touch_clicked'   : (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, (gobject.TYPE_PYOBJECT,)),
+                    'jog_incr_changed': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, (gobject.TYPE_STRING,)),
                     'jog_btn_pressed' : (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, (gobject.TYPE_STRING, gobject.TYPE_STRING,)),
                     'jog_btn_released': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, (gobject.TYPE_STRING, gobject.TYPE_STRING,)),
                     'error'           : (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, (gobject.TYPE_PYOBJECT,)),
@@ -371,7 +372,7 @@ class Build_GUI(gobject.GObject):
             name = "touch_{0}".format(elem)
             btn = self._get_button_with_image(name, filepath, None)
             btn.set_property("tooltip-text", _("Press to set touch off value for axis {0}".format(elem.upper())))
-# ToDo            btn.connect("clicked", self._on_btn_touch_clicked)
+            #btn.connect("clicked", self._on_btn_t)
 
             self.widgets.hbtb_touch_off.pack_start(btn)
             
@@ -413,7 +414,7 @@ class Build_GUI(gobject.GObject):
         print("tool measurement OK = ",self._check_toolmeasurement())
 
         btn = gtk.Button(_("    set\nselected"))
-#        btn.connect(self.on_btn_set_selected_clicked)
+        #btn.connect(self._on_btn_set_selected_clicked)
         btn.set_property("tooltip-text", _("Press to set the selected coordinate system to be the active one"))
         btn.set_property("name", "set_active")
         self.widgets.hbtb_touch_off.pack_start(btn)
@@ -439,7 +440,7 @@ class Build_GUI(gobject.GObject):
         # because of space on the screen only 10 items are allowed
         # jogging increments
 
-        self.incr_dic = {}
+        self.incr_rbt_list = []
 
         # We get the increments from INI File
         if len(self.jog_increments) > 10:
@@ -462,10 +463,11 @@ class Build_GUI(gobject.GObject):
         rbt0.set_property("draw_indicator", False)
         rbt0.show()
         rbt0.modify_bg(gtk.STATE_ACTIVE, gtk.gdk.color_parse("#FFFF00"))
-        self.incr_dic[rbt0.name] = rbt0
+        self.incr_rbt_list.append(rbt0)
         # the rest of the buttons are now added to the group
         # self.no_increments is set while setting the hal pins with self._check_len_increments
         for item in range(1, len(self.jog_increments)):
+            print self.jog_increments[item]
             name = "rbt_{0}".format(item)
             rbt = gtk.RadioButton(rbt0, self.jog_increments[item])
             rbt.set_property("name",name)
@@ -474,9 +476,9 @@ class Build_GUI(gobject.GObject):
             rbt.set_property("draw_indicator", False)
             rbt.show()
             rbt.modify_bg(gtk.STATE_ACTIVE, gtk.gdk.color_parse("#FFFF00"))
-            self.incr_dic[rbt.name] = rbt
+            self.incr_rbt_list.append(rbt)
+        rbt0.set_active(True)
         self.active_increment = rbt0
-        return self.active_increment, self.incr_dic
 
     def _make_jog_button(self):
         self.jog_button_dic = {}
@@ -502,6 +504,51 @@ class Build_GUI(gobject.GObject):
                 self.jog_button_dic[name] = btn
                 
         self._arrange_jog_button()
+
+    def _on_btn_set_value_clicked(self, widget, data = None):
+        if widget == self.widgets.btn_set_value_x:
+            axis = "x"
+        elif widget == self.widgets.btn_set_value_y:
+            axis = "y"
+        elif widget == self.widgets.btn_set_value_z:
+            axis = "z"
+        elif widget == self.widgets.btn_set_value_4:
+            axis = self.axisletter_four
+        elif widget == self.widgets.btn_set_value_5:
+            axis = self.axisletter_five
+        else:
+            axis = "Unknown"
+            message = _("Offset {0} could not be set, because off unknown axis").format(axis)
+            self.dialogs.warning_dialog(self, _("Wrong offset setting!"), message)
+            return
+        if self.gui.lathe_mode and axis == "x":
+            if self.diameter_mode:
+                preset = self.prefs.getpref("diameter offset_axis_{0}".format(axis), 0, float)
+                offset = self.dialogs.entry_dialog(self, data = preset, header = _("Enter value for diameter"),
+                                                   label = _("Set diameter to:"), integer = False)
+            else:
+                preset = self.prefs.getpref("radius offset_axis_{0}".format(axis), 0, float)
+                offset = self.dialogs.entry_dialog(self, data = preset, header = _("Enter value for radius"),
+                                                   label = _("Set radius to:"), integer = False)
+        else:
+            preset = self.prefs.getpref("offset_axis_{0}".format(axis), 0, float)
+            offset = self.dialogs.entry_dialog(self, data = preset, header = _("Enter value for axis {0}").format(axis),
+                                               label = _("Set axis {0} to:").format(axis), integer = False)
+        if offset == "CANCEL":
+            return
+        elif offset == "ERROR":
+            print(_("Conversion error in btn_set_value"))
+            self.dialogs.warning_dialog(self, _("Conversion error in btn_set_value!"),
+                                        _("Please enter only numerical values. Values have not been applied"))
+        else:
+            self.command.mode(linuxcnc.MODE_MDI)
+            self.command.wait_complete()
+            command = "G10 L20 P0 {0}{1:f}".format(axis, offset)
+            self.command.mdi(command)
+            self.widgets.hal_action_reload.emit("activate")
+            self.command.mode(linuxcnc.MODE_MANUAL)
+            self.command.wait_complete()
+            self.prefs.putpref("offset_axis_{0}".format(axis), offset, float)
 
     def _on_btn_jog_pressed(self, widget, axis, direction):
         print(widget, axis, direction)
@@ -870,8 +917,8 @@ class Build_GUI(gobject.GObject):
     def on_btn_touch_clicked(self, widget, data=None):
         self.widgets.ntb_button.set_current_page(_BB_TOUCH_OFF)
         self._show_offset_tab(True)
-#        if self.widgets.rbtn_show_preview.get_active():
-#            self.widgets.ntb_preview.set_current_page(0)
+        if self.widgets.rbtn_show_preview.get_active():
+            self.widgets.ntb_preview.set_current_page(0)
 
     # display the tool button
     def on_btn_tool_clicked(self, widget, data=None):
@@ -915,7 +962,8 @@ class Build_GUI(gobject.GObject):
 ##                       bottom buttons (homing)                             ##
 ###############################################################################
 
-# ToDo Start : must fit also the joints button
+
+         # ToDo Start : must fit also the joints button
     def _on_btn_previous_clicked(self, widget):
         self._remove_button(self.ref_button_dic, self.widgets.hbtb_ref)
         self._put_home_all_and_previous()
@@ -1734,8 +1782,9 @@ class Build_GUI(gobject.GObject):
    
     def _jog_increment_changed(self, widget, increment):
         print("widget = ", widget.name)
+        print("jog_incr_dic = ", self.incr_dic)
         print("increment = ", increment)
-        self.emit("jof_incr_changed", widget, increment)
+        self.emit("jog_incr_changed", increment)
 
 
         
