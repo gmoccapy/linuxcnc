@@ -1,5 +1,6 @@
 ver 3.0.0 
 - 9 axis support included
+- completely new structure, as widgets are generated on the fly
 
 ver 2.3.3.4
 - a merge of 2.7 to master resulted in a call of a widget, that does not longer
