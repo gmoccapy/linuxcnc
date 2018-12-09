@@ -32,8 +32,8 @@ import hal_glib            # needed to make our own hal pins
 import gtk                 # base for pygtk widgets and constants
 import sys                 # handle system calls
 import os                  # needed to get the paths and directories
-import pango               # needed for font settings and changing
-import gladevcp.makepins   # needed for the dialog"s calculator widget
+#import pango               # needed for font settings and changing
+#import gladevcp.makepins   # needed for the dialog"s calculator widget
 import atexit              # needed to register child's to be closed on closing the GUI
 import subprocess          # to launch onboard and other processes
 import tempfile            # needed only if the user click new in edit mode to open a new empty file
@@ -42,10 +42,11 @@ import gobject             # needed to add the timer for periodic
 import locale              # for setting the language of the GUI
 import gettext             # to extract the strings to be translated
 
-from gladevcp.gladebuilder import GladeBuilder
+#from gladevcp.gladebuilder import GladeBuilder
 
 from time import strftime  # needed for the clock in the GUI
-from gtk._gtk import main_quit
+#from gtk._gtk import main_quit
+#from gi.overrides.Gtk import Widget
 
 # Throws up a dialog with debug info when an error is encountered
 def excepthook(exc_type, exc_obj, exc_tb):
@@ -68,26 +69,27 @@ def excepthook(exc_type, exc_obj, exc_tb):
 
 sys.excepthook = excepthook
 
-debug = False
-
-if debug:
-    pydevdir = '/home/gmoccapy/Aptana_Studio_3/plugins/org.python.pydev_4.5.5.201603221110/pysrc'
-
-    if os.path.isdir(pydevdir):  # and  'emctask' in sys.builtin_module_names:
-        sys.path.append(pydevdir)
-        sys.path.insert(0, pydevdir)
-        try:
-            import pydevd
-
-            print("pydevd imported, connecting to Eclipse debug server...")
-            pydevd.settrace()
-        except:
-            print("no pydevd module found")
-            pass
+# debug = False
+#
+# if debug:
+#     pydevdir = '/home/gmoccapy/Aptana_Studio_3/plugins/org.python.pydev_4.5.5.201603221110/pysrc'
+#
+#     if os.path.isdir(pydevdir):  # and  'emctask' in sys.builtin_module_names:
+#         sys.path.append(pydevdir)
+#         sys.path.insert(0, pydevdir)
+#         try:
+#             import pydevd
+#
+#             print("pydevd imported, connecting to Eclipse debug server...")
+#             pydevd.settrace()
+#         except:
+#             print("no pydevd module found")
+#             pass
 
 # constants
 #         # gmoccapy  #"
 _RELEASE = " 3.0.0"
+
 _INCH = 0                         # imperial units are active
 _MM = 1                           # metric units are active
 
@@ -125,6 +127,7 @@ try:
     _AUDIO_AVAILABLE = True
 except:
     pass
+
 # set up paths to files, part two
 CONFIGPATH = os.environ['CONFIG_DIR']
 DATADIR = os.path.join(BASE, "share", "gmoccapy")
@@ -149,19 +152,19 @@ INVISABLE = gtk.gdk.Cursor(pixmap, pixmap, color, color, 0, 0)
 
 class gmoccapy(object):
     def __init__(self, argv):
-        
+
         # prepare for translation / internationalization
         locale.setlocale(locale.LC_ALL, '')
         locale.bindtextdomain("gmoccapy", LOCALEDIR)
         gettext.install("gmoccapy", localedir=LOCALEDIR, unicode=True)
         gettext.bindtextdomain("gmoccapy", LOCALEDIR)
 
-        # needed components to comunicate with hal and linuxcnc
+        # needed components to communicate with hal and LinuxCNC
         self.halcomp = hal.component("gmoccapy")
         self.command = linuxcnc.command()
         self.stat = linuxcnc.stat()
-
         self.error_channel = linuxcnc.error_channel()
+
         # initial poll, so all is up to date
         self.stat.poll()
         self.error_channel.poll()
@@ -204,8 +207,6 @@ class gmoccapy(object):
 
         self.gcodeerror = ""   # we need this to avoid multiple messages of the same error
 
-        self.lathe_mode = None # we need this to check if we have a lathe config
-
         # the default theme = System Theme we store here to be able to go back to that one later
         self.default_theme = gtk.settings_get_default().get_property("gtk-theme-name")
 
@@ -230,6 +231,8 @@ class gmoccapy(object):
         self.gui.connect("set_motion_mode", self._set_motion_mode)
         self.gui.connect("mdi_command", self._mdi_command)
         self.gui.connect("mdi_abort", self._mdi_abort)
+        self.gui.connect("jog_btn_pressed", self.on_btn_jog_pressed)
+        self.gui.connect("jog_btn_released", self.on_btn_jog_released)
         self.gui.connect("error", self._show_error)
         self.gui.connect("exit", self._exit)
 
@@ -291,7 +294,7 @@ class gmoccapy(object):
         self._init_tooleditor()
         self._init_themes()
         self._init_audio()
-        self._init_gremlin()
+        #self._init_gremlin()
         self._init_hide_cursor()
         self._init_offsetpage()
         self._init_keybindings()
@@ -365,67 +368,15 @@ class gmoccapy(object):
 
 
         # Do we control a lathe?
-        if self.lathe_mode:
+        if self.gui.lathe_mode:
             
-#            # is this a backtool lathe?
-#            self.backtool_lathe = self.get_ini_info.get_backtool_lathe()
-#
-#            # we first hide the Y button to home and touch off
-#            self.widgets.btn_home_y.hide()
-#            self.widgets.btn_set_value_y.hide()
-#            self.widgets.lbl_replace_y.show()
-#            self.widgets.lbl_replace_set_value_y.show()
-#            self.widgets.btn_tool_touchoff_x.show()
-#            self.widgets.lbl_hide_tto_x.hide()
-#
-#            # we have to re-arrange the jog buttons, so first remove all button
-#            self.widgets.tbl_jog_btn_axes.remove(self.widgets.btn_y_minus)
-#            self.widgets.tbl_jog_btn_axes.remove(self.widgets.btn_y_plus)
-#            self.widgets.tbl_jog_btn_axes.remove(self.widgets.btn_x_minus)
-#            self.widgets.tbl_jog_btn_axes.remove(self.widgets.btn_x_plus)
-#            self.widgets.tbl_jog_btn_axes.remove(self.widgets.btn_z_minus)
-#            self.widgets.tbl_jog_btn_axes.remove(self.widgets.btn_z_plus)
-#
-#            # now we place them in a different order
-#            if self.backtool_lathe:
-#                self.widgets.tbl_jog_btn_axes.attach(self.widgets.btn_x_plus, 1, 2, 0, 1, gtk.SHRINK, gtk.SHRINK)
-#                self.widgets.tbl_jog_btn_axes.attach(self.widgets.btn_x_minus, 1, 2, 2, 3, gtk.SHRINK, gtk.SHRINK)
-#            else:
-#                self.widgets.tbl_jog_btn_axes.attach(self.widgets.btn_x_plus, 1, 2, 2, 3, gtk.SHRINK, gtk.SHRINK)
-#                self.widgets.tbl_jog_btn_axes.attach(self.widgets.btn_x_minus, 1, 2, 0, 1, gtk.SHRINK, gtk.SHRINK)
-#            self.widgets.tbl_jog_btn_axes.attach(self.widgets.btn_z_plus, 2, 3, 1, 2, gtk.SHRINK, gtk.SHRINK)
-#            self.widgets.tbl_jog_btn_axes.attach(self.widgets.btn_z_minus, 0, 1, 1, 2, gtk.SHRINK, gtk.SHRINK)
-#
-#            # The Y DRO we make to a second X DRO to indicate the diameter
-#            self.widgets.Combi_DRO_1.set_to_diameter(True)
-#            self.widgets.Combi_DRO_1.set_property("joint_number", 0)
-#
-#            # we change the axis letters of the DRO's
-#            self.widgets.Combi_DRO_0.change_axisletter("R")
-#            self.widgets.Combi_DRO_1.change_axisletter("D")
-#
-            # and we will have to change the colors of the Y DRO according to the settings
-            self.widgets.Combi_DRO_1.set_property("abs_color", gtk.gdk.color_parse(self.abs_color))
-            self.widgets.Combi_DRO_1.set_property("rel_color", gtk.gdk.color_parse(self.rel_color))
-            self.widgets.Combi_DRO_1.set_property("dtg_color", gtk.gdk.color_parse(self.dtg_color))
-            self.widgets.Combi_DRO_1.set_property("homed_color", gtk.gdk.color_parse(self.homed_color))
-            self.widgets.Combi_DRO_1.set_property("unhomed_color", gtk.gdk.color_parse(self.unhomed_color))
-            self.widgets.Combi_DRO_1.set_property("actual", self.dro_actual)
-#
-#            # For gremlin we don"t need the following button
-#            if self.backtool_lathe:
-#                self.widgets.rbt_view_y2.set_active(True)
-#            else:
-#                self.widgets.rbt_view_y.set_active(True)
-#            self.widgets.rbt_view_p.hide()
-#            self.widgets.rbt_view_x.hide()
-#            self.widgets.rbt_view_z.hide()
-#
             # check if G7 or G8 is active
             if "70" in self.stat.gcodes:
-                self._switch_to_g7(True)
+                self.diameter_mode = True
+                self.gui.switch_to_g7(True)
             else:
-                self._switch_to_g7(False)
+                self.gui.switch_to_g7(False)
+                self.diameter_mode = False
 #
 #        else:
 #            # the Y2 view is not needed on a mill
@@ -459,9 +410,6 @@ class gmoccapy(object):
         # but if there is a setting in our preference file, that one will beet the INI entry
         default_spindle_speed = self.get_ini_info.get_default_spindle_speed()
         self.spindle_start_rpm = self.prefs.getpref( 'spindle_start_rpm', default_spindle_speed, float )
-
-        # if it's a lathe config, set the tooleditor style
-        self.lathe_mode = self.get_ini_info.get_lathe()
 
         # get the values for the sliders
         default_jog_vel = self.get_ini_info.get_jog_vel()
@@ -672,7 +620,7 @@ class gmoccapy(object):
             self.widgets.tooledit1.set_visible("{0}".format(axis), True)
 
         # if it's a lathe config we show lathe related columns
-        if self.lathe_mode:
+        if self.gui.lathe_mode:
             self.widgets.tooledit1.set_visible("ijq", True)
             if not self.get_ini_info.get_lathe_wear_offsets():
                 # hide the wear offset tabs
@@ -741,18 +689,18 @@ class gmoccapy(object):
             self.widgets.audio_alert_chooser.set_sensitive(False)
             self.widgets.audio_error_chooser.set_sensitive(False)
 
-    # init the preview
-    def _init_gremlin( self ):
-        grid_size = self.prefs.getpref( 'grid_size', 1.0, float )
-        self.widgets.grid_size.set_value( grid_size )
-        self.widgets.gremlin.grid_size = grid_size
-        view = self.prefs.getpref( 'view', "p", str )
-        self.widgets.gremlin.set_property( "view", view )
-        self.widgets.gremlin.set_property( "metric_units", int( self.stat.linear_units ) )
-        self.widgets.gremlin.set_property( "mouse_btn_mode", self.prefs.getpref( "mouse_btn_mode", 4, int ) )
-        self.widgets.gremlin.set_property( "use_commanded", not self.dro_actual)
-        self.widgets.eb_program_label.modify_bg(gtk.STATE_NORMAL, gtk.gdk.Color(0, 0, 0))
-        self.widgets.eb_blockheight_label.modify_bg(gtk.STATE_NORMAL, gtk.gdk.Color(0, 0, 0))
+    # # init the preview
+    # def _init_gremlin( self ):
+    #     grid_size = self.prefs.getpref( 'grid_size', 1.0, float )
+    #     self.widgets.grid_size.set_value( grid_size )
+    #     self.widgets.gremlin.grid_size = grid_size
+    #     view = self.prefs.getpref( 'view', "p", str )
+    #     self.widgets.gremlin.set_property( "view", view )
+    #     self.widgets.gremlin.set_property( "metric_units", int( self.stat.linear_units ) )
+    #     self.widgets.gremlin.set_property( "mouse_btn_mode", self.prefs.getpref( "mouse_btn_mode", 4, int ) )
+    #     self.widgets.gremlin.set_property( "use_commanded", not self.dro_actual)
+    #     self.widgets.eb_program_label.modify_bg(gtk.STATE_NORMAL, gtk.gdk.Color(0, 0, 0))
+    #     self.widgets.eb_blockheight_label.modify_bg(gtk.STATE_NORMAL, gtk.gdk.Color(0, 0, 0))
 
 
 
@@ -1025,11 +973,11 @@ class gmoccapy(object):
         if self.mcodes != self.stat.mcodes:
             self._update_active_mcodes()
 
-        if self.lathe_mode:
-            if "G8" in self.active_gcodes and self.diameter_mode:
-                self._switch_to_g7(False)
-            elif "G7" in self.active_gcodes and not self.diameter_mode:
-                self._switch_to_g7(True)
+        if self.gui.lathe_mode:
+            if "G8" in self.active_gcodes and self.gui.diameter_mode:
+                self.gui.switch_to_g7(False)
+            elif "G7" in self.active_gcodes and not self.gui.diameter_mode:
+                self.gui.switch_to_g7(True)
 
         self._update_vel()
         self._update_coolant()
@@ -1192,25 +1140,6 @@ class gmoccapy(object):
         self.command.abort()
         self.command.wait_complete()
 
-
-    def _switch_to_g7(self, state):
-        if state:
-            self.widgets.Combi_DRO_0.set_property("abs_color", gtk.gdk.color_parse("#F2F1F0"))
-            self.widgets.Combi_DRO_0.set_property("rel_color", gtk.gdk.color_parse("#F2F1F0"))
-            self.widgets.Combi_DRO_0.set_property("dtg_color", gtk.gdk.color_parse("#F2F1F0"))
-            self.widgets.Combi_DRO_1.set_property("abs_color", gtk.gdk.color_parse(self.abs_color))
-            self.widgets.Combi_DRO_1.set_property("rel_color", gtk.gdk.color_parse(self.rel_color))
-            self.widgets.Combi_DRO_1.set_property("dtg_color", gtk.gdk.color_parse(self.dtg_color))
-            self.diameter_mode = True
-        else:
-            self.widgets.Combi_DRO_1.set_property("abs_color", gtk.gdk.color_parse("#F2F1F0"))
-            self.widgets.Combi_DRO_1.set_property("rel_color", gtk.gdk.color_parse("#F2F1F0"))
-            self.widgets.Combi_DRO_1.set_property("dtg_color", gtk.gdk.color_parse("#F2F1F0"))
-            self.widgets.Combi_DRO_0.set_property("abs_color", gtk.gdk.color_parse(self.abs_color))
-            self.widgets.Combi_DRO_0.set_property("rel_color", gtk.gdk.color_parse(self.rel_color))
-            self.widgets.Combi_DRO_0.set_property("dtg_color", gtk.gdk.color_parse(self.dtg_color))
-            self.diameter_mode = False
-
     def on_key_event(self, widget, event, signal):
 
         # get the keyname
@@ -1322,7 +1251,7 @@ class gmoccapy(object):
             return
 
         # take care of different key handling for lathe operation
-        if self.lathe_mode:
+        if self.gui.lathe_mode:
             if keyname == "Page_Up" or keyname == "Page_Down" or keyname == "KP_Page_Up" or keyname == "KP_Page_Down":
                 return
 
@@ -1332,7 +1261,7 @@ class gmoccapy(object):
             fast = False
 
         if keyname == "Up" or keyname == "KP_Up":
-            if self.lathe_mode:
+            if self.gui.lathe_mode:
                 if self.backtool_lathe:
                     widget = self.widgets.btn_x_plus
                 else:
@@ -1344,7 +1273,7 @@ class gmoccapy(object):
             else:
                 self.on_btn_jog_released(widget)
         elif keyname == "Down" or keyname == "KP_Down":
-            if self.lathe_mode:
+            if self.gui.lathe_mode:
                 if self.backtool_lathe:
                     widget = self.widgets.btn_x_minus
                 else:
@@ -1356,7 +1285,7 @@ class gmoccapy(object):
             else:
                 self.on_btn_jog_released(widget)
         elif keyname == "Left" or keyname == "KP_Left":
-            if self.lathe_mode:
+            if self.gui.lathe_mode:
                 widget = self.widgets.btn_z_minus
             else:
                 widget = self.widgets.btn_x_minus
@@ -1365,7 +1294,7 @@ class gmoccapy(object):
             else:
                 self.on_btn_jog_released(widget)
         elif keyname == "Right" or keyname == "KP_Right":
-            if self.lathe_mode:
+            if self.gui.lathe_mode:
                 widget = self.widgets.btn_z_plus
             else:
                 widget = self.widgets.btn_x_plus
@@ -1502,7 +1431,7 @@ class gmoccapy(object):
             active_codes.append("G" + code)
         self.active_gcodes = active_codes
         self.gcodes = self.stat.gcodes
-        self.widgets.active_gcodes_label.set_label(" ".join(self.active_gcodes))
+        self.gui.widgets.active_gcodes_label.set_label(" ".join(self.active_gcodes))
 
     def _update_active_mcodes(self):
         # M codes
@@ -1601,7 +1530,7 @@ class gmoccapy(object):
     def _change_dro_color(self, property, color):
         for dro in range(9):
             self.widgets["Combi_DRO_{0}".format(dro)].set_property(property, color)
-        if self.lathe_mode:
+        if self.gui.lathe_mode:
             self.widgets.Combi_DRO_1.set_property(property, color)
             # check if G7 or G8 is active
             # this is set on purpose wrong, because we want the periodic
@@ -1628,14 +1557,10 @@ class gmoccapy(object):
             format_string_mm = "%" + str(13 - self.dro_digits + 1) + "." + str(self.dro_digits - 1) + "f"
 
         for axis in self.axis_list:
-            if axis == self.axisletter_four:
-                axis = 4
-            if axis == self.axisletter_five:
-                axis = 5
             self.widgets["Combi_DRO_{0}".format(axis)].set_property("mm_text_template", format_string_mm)
             self.widgets["Combi_DRO_{0}".format(axis)].set_property("imperial_text_template", format_string_inch)
 
-        if self.lathe_mode:
+        if self.gui.lathe_mode:
             self.widgets.Combi_DRO_1.set_property("mm_text_template", format_string_mm)
             self.widgets.Combi_DRO_1.set_property("imperial_text_template", format_string_inch)
 
@@ -1644,10 +1569,6 @@ class gmoccapy(object):
         self.prefs.putpref("toggle_readout", state)
         self.toggle_readout = state
         for axis in self.axis_list:
-            if axis == self.axisletter_four:
-                axis = 4
-            if axis == self.axisletter_five:
-                axis = 5
             self.widgets["Combi_DRO_{0}".format(axis)].set_property("toggle_readout", state)
 
 
@@ -1741,12 +1662,8 @@ class gmoccapy(object):
             widget.set_label(_("mm"))
             metric_units = True
         for axis in self.axis_list:
-            if axis == self.axisletter_four:
-                axis = 4
-            if axis == self.axisletter_five:
-                axis = 5
             self.widgets["Combi_DRO_{0}".format(axis)].set_to_inch(not metric_units)
-        if self.lathe_mode:
+        if self.gui.lathe_mode:
             self.widgets.Combi_DRO_1.set_to_inch(not metric_units)
         # set gremlin_units
         self.widgets.gremlin.set_property("metric_units", metric_units)
@@ -1837,13 +1754,14 @@ class gmoccapy(object):
     def _on_turtle_jog_enable(self, pin):
         self.widgets.tbtn_turtle_jog.set_active(pin.get())
 
-    def on_btn_jog_pressed(self, widget, data=None):
+    def on_btn_jog_pressed(self, object, joint_or_axis, direction, shift=False):
+        print(self, object, joint_or_axis, direction, shift)
+
         # only in manual mode we will allow jogging the axis at this development state
         if not self.stat.enabled or self.stat.task_mode != linuxcnc.MODE_MANUAL:
             return
 
         joint_btn = False
-        joint_or_axis = widget.get_label()[0]
         if not joint_or_axis.lower() in "xyzabcuvw":
             # OK, it seems to be a Joints button
             if joint_or_axis in "012345678":
@@ -1855,30 +1773,28 @@ class gmoccapy(object):
         if not joint_btn:
             # get the axisnumber
             joint_axis_number = "xyzabcuvws".index(joint_or_axis.lower())
-            print joint_axis_number
         else:
             joint_axis_number = "01234567".index(joint_or_axis)
 
-        # if data = True, then the user pressed SHIFT for Jogging and
+        # if shift = True, then the user pressed SHIFT for Jogging and
         # want's to jog at full speed
-        if data:
+        if shift:
             value = self.stat.max_velocity
         else:
             value = self.widgets.spc_lin_jog_vel.get_value() / 60
 
         velocity = value * (1 / self.faktor)
 
-        dir = widget.get_label()[1]
-        if dir == "+":
-            direction = 1
+        if direction == "+":
+            dir = 1
         else:
-            direction = -1
+            dir = -1
 
         if self.stat.motion_mode == 1:
             if self.stat.kinematics_type == linuxcnc.KINEMATICS_IDENTITY:
                 # this may happen, because the joints / axes has been unhomed
                 print("wrong motion mode, change to the correct one")
-                self_set_motion_mode(1)
+                self._set_motion_mode(None, 1)
                 JOGMODE = 0
             else:
                 JOGMODE = 1
@@ -1886,17 +1802,16 @@ class gmoccapy(object):
             JOGMODE = 0
         
         if self.distance <> 0:  # incremental jogging
-            self.command.jog(linuxcnc.JOG_INCREMENT, JOGMODE, joint_axis_number, direction * velocity, self.distance)
+            self.command.jog(linuxcnc.JOG_INCREMENT, JOGMODE, joint_axis_number, dir * velocity, self.distance)
         else:  # continuous jogging
-            self.command.jog(linuxcnc.JOG_CONTINUOUS, JOGMODE, joint_axis_number, direction * velocity)
+            self.command.jog(linuxcnc.JOG_CONTINUOUS, JOGMODE, joint_axis_number, dir * velocity)
 
-    def on_btn_jog_released(self, widget, data=None):
+    def on_btn_jog_released(self, object, joint_or_axis, direction, shift=False):
         # only in manual mode we will allow jogging the axis at this development state
         if not self.stat.enabled or self.stat.task_mode != linuxcnc.MODE_MANUAL:
             return
 
         joint_btn = False
-        joint_or_axis = widget.get_label()[0]
         if not joint_or_axis.lower() in "xyzabcuvw":
             # OK, it may be a Joints button
             if joint_or_axis in "01234567":
@@ -1916,7 +1831,7 @@ class gmoccapy(object):
             if self.stat.kinematics_type == linuxcnc.KINEMATICS_IDENTITY:
                 # this may happen, because the joints / axes has been unhomed
                 print("wrong motion mode, change to the correct one")
-                self_set_motion_mode(1)
+                self._set_motion_mode(None, 1)
                 JOGMODE = 0
             else:
                 JOGMODE = 1
@@ -2016,6 +1931,7 @@ class gmoccapy(object):
                 speed = self.stat.settings[2]
             else:
                 speed = self.stat.spindle[0]['speed']
+
             if not self.lathe_mode:
                 diameter = self.halcomp["tool-diameter"]
             else:
@@ -2310,7 +2226,7 @@ class gmoccapy(object):
             message = _("Offset {0} could not be set, because off unknown axis").format(axis)
             self.dialogs.warning_dialog(self, _("Wrong offset setting!"), message)
             return
-        if self.lathe_mode and axis =="x":
+        if self.gui.lathe_mode and axis =="x":
             if self.diameter_mode:
                 preset = self.prefs.getpref("diameter offset_axis_{0}".format(axis), 0, float)
                 offset = self.dialogs.entry_dialog(self, data=preset, header=_("Enter value for diameter"),
@@ -2558,7 +2474,7 @@ class gmoccapy(object):
                 axis = 5
                 size = int(size * 0.75)
             self.widgets["Combi_DRO_{0}".format(axis)].set_property("font_size", size)
-            if self.lathe_mode:
+            if self.gui.lathe_mode:
                 self.widgets.Combi_DRO_1.set_property("font_size", size)
 
     def on_chk_hide_cursor_toggled(self, widget, data=None):
@@ -3002,19 +2918,32 @@ class gmoccapy(object):
                 self._show_error(pin,(13, message))
                 return
 
-        if axis not in "xyz":
-            if axis == self.axisletter_four:
-                axis = 4
-            if axis == self.axisletter_five:
-                axis = 5
         if direction == 1:
-            widget = self.widgets["btn_{0}_plus".format(axis)]
+            name = "{0}+".format(axis)
         else:
-            widget = self.widgets["btn_{0}_minus".format(axis)]
-        if pin.get():
-            self.on_btn_jog_pressed(widget)
-        else:
-            self.on_btn_jog_released(widget)
+            name = "{0}-".format(axis)
+            
+        widget = self.gui.jog_button_dic[name]
+
+
+#        children = self.widgets.hbtb_touch_off.get_children()
+#        for child in children:
+#            if child.name in self.gui.jog_button_dic:
+#                print (self.gui.jog_button_dic[child.name])
+#                if child[1] == axis:
+#                    print("found axis {0}".format(axis))
+#                    break
+
+#        print("Button = {0}".format(child.name))
+#
+#        if direction == 1:
+#            widget = self.widgets["{0}+".format(axis)]
+#        else:
+#            widget = self.widgets["{0}-".format(axis)]
+#        if pin.get():
+#            self.on_btn_jog_pressed(widget)
+#        else:
+#            self.on_btn_jog_released(widget)
 
     def _on_pin_jog_joint_changed(self, pin, joint, direction):
         if self.stat.motion_mode != 1 and pin.get():
@@ -3104,12 +3033,12 @@ class gmoccapy(object):
             pin = self.halcomp.newpin("jog.axis.jog-{0}-minus".format(jog_button), hal.HAL_BIT, hal.HAL_IN)
             hal_glib.GPin(pin).connect("value_changed", self._on_pin_jog_axis_changed, jog_button, -1)
 
-        if self.stat.kinematics_type != linuxcnc.KINEMATICS_IDENTITY:
-            for joint_button in range(0, self.stat.joints):
-                pin = self.halcomp.newpin("jog.joint.jog-{0}-plus".format(joint_button), hal.HAL_BIT, hal.HAL_IN)
-                hal_glib.GPin(pin).connect("value_changed", self._on_pin_jog_joint_changed, joint_button, 1)
-                pin = self.halcomp.newpin("jog.joint.jog-{0}-minus".format(joint_button), hal.HAL_BIT, hal.HAL_IN)
-                hal_glib.GPin(pin).connect("value_changed", self._on_pin_jog_joint_changed, joint_button, -1)
+#        if self.stat.kinematics_type != linuxcnc.KINEMATICS_IDENTITY:
+#            for joint_button in range(0, self.stat.joints):
+#                pin = self.halcomp.newpin("jog.joint.jog-{0}-plus".format(joint_button), hal.HAL_BIT, hal.HAL_IN)
+#                hal_glib.GPin(pin).connect("value_changed", self._on_pin_jog_joint_changed, joint_button, 1)
+#                pin = self.halcomp.newpin("jog.joint.jog-{0}-minus".format(joint_button), hal.HAL_BIT, hal.HAL_IN)
+#                hal_glib.GPin(pin).connect("value_changed", self._on_pin_jog_joint_changed, joint_button, -1)
 
         # jog_increment out pin
         self.halcomp.newpin("jog.jog-increment", hal.HAL_FLOAT, hal.HAL_OUT)

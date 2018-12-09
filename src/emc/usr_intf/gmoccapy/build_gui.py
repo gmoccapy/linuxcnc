@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding:UTF-8 -*-
 """
-This file is part of gmoccapy and contains all information to rearange 
+This file is part of gmoccapy and contains all information to rearrange
 the widgets of GUI to fit the users needs
 Most information we need, can be taken from the INI file
 
@@ -31,7 +31,7 @@ import gobject                     # needed to send signals
 import locale                      # for setting the language of the GUI
 import gettext                     # to extract the strings to be translated
 import subprocess                  # to launch onboard and other processes
-import tempfile                    # needed only if the user click new in edit 
+import tempfile                    # needed only if the user click new in edit
                                    # mode to open a new empty file
 
 # ToDo : is this necessary ?
@@ -39,21 +39,18 @@ from time import sleep             # needed to wait for command complete
 # ToDo : is this necessary ?
 
 
-import gladevcp.makepins           # needed for the dialog"s calculator widget
-from gladevcp import combi_dro     # we will need it to make the DRO
+import gladevcp.makepins                  # needed for the dialog"s calculator widget
+from gladevcp.combi_dro import Combi_DRO  # we will need it to make the DRO
 
-from gmoccapy import widgets       # a class to handle the widgets
-from gmoccapy import getiniinfo    # this handles the INI File reading so 
-                                   # checking is done in that module
-from gmoccapy import preferences   # this handles the preferences
-from gmoccapy import dialogs       # this takes the code of all our dialogs
+from gmoccapy import widgets              # a class to handle the widgets
+from gmoccapy import getiniinfo           # this handles the INI File reading so
+                                          # checking is done in that module
+from gmoccapy import preferences          # this handles the preferences
+from gmoccapy import dialogs              # this takes the code of all our dialogs
 
+#from lxml.cssselect import is_int
 
-from gladevcp.combi_dro import Combi_DRO
-from lxml.cssselect import is_int
-
-from hal_glib import GStat
-
+#from hal_glib import GStat
 
 BASE = os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]), ".."))
 LOCALEDIR = os.path.join(BASE, "share", "locale")
@@ -73,10 +70,6 @@ XMLNAME = os.path.join(DATADIR, "gmoccapy.glade")
 
 # path to TCL for external programs eg. halshow
 TCLPATH = os.environ['LINUXCNC_TCL_DIR']
-
-# the ICONS should must be in share/gmoccapy/images
-ALERT_ICON = os.path.join(IMAGEDIR, "applet-critical.png")
-INFO_ICON = os.path.join(IMAGEDIR, "std_info.gif")
 
 # this is for hiding the pointer when using a touch screen
 pixmap = gtk.gdk.Pixmap(None, 1, 1, 1)
@@ -98,9 +91,6 @@ _BB_EDIT = 6
 _BB_TOOL = 7
 _BB_LOAD_FILE = 8
 #_BB_HOME_JOINTS will not be used, we will reorder the notebooks to get the correct page shown
-
-_TEMPDIR = tempfile.gettempdir()  # Now we know where the tempdir is, usualy /tmp
-
 
 # Throws up a dialog with debug info when an error is encountered
 def excepthook(exc_type, exc_obj, exc_tb):
@@ -137,7 +127,6 @@ class Build_GUI(gobject.GObject):
     __gproperties = __gproperties__
 
     __gsignals__ = {
-#                    'clicked': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, (gobject.TYPE_STRING, gobject.TYPE_PYOBJECT)),
                     'estop_active'    : (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, (gobject.TYPE_BOOLEAN,)),
                     'on_active'       : (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, (gobject.TYPE_BOOLEAN,)),
                     'set_manual'      : (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ()),
@@ -149,11 +138,11 @@ class Build_GUI(gobject.GObject):
                     'home_clicked'    : (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, (gobject.TYPE_PYOBJECT,)),
                     'unhome_clicked'  : (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, (gobject.TYPE_PYOBJECT,)),
                     'jog_incr_changed': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, (gobject.TYPE_PYOBJECT,)),
+                    'jog_btn_pressed' : (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, (gobject.TYPE_STRING, gobject.TYPE_STRING,)),
+                    'jog_btn_released': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, (gobject.TYPE_STRING, gobject.TYPE_STRING,)),
                     'error'           : (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, (gobject.TYPE_PYOBJECT,)),
-
-                    'exit': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ()),
+                    'exit'            : (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ()),
                    }
-
 
 
     def __init__(self, halcomp, _RELEASE):
@@ -167,8 +156,8 @@ class Build_GUI(gobject.GObject):
 
         self.halcomp = halcomp
 
-
         self.builder = gtk.Builder()
+
         # translation of the glade file will be done with
         self.builder.set_translation_domain("gmoccapy")
         self.builder.add_from_file(XMLNAME)
@@ -192,11 +181,15 @@ class Build_GUI(gobject.GObject):
         self._get_ini_data()
         self._get_pref_data()
 
+        # Show the main window
+        self.widgets.window1.show()
+
         # make all widgets we create dynamically
         self._make_DRO()
         self._make_ref_button()
         self._make_touch_button()
         self._make_jog_increments()
+        self._make_jog_button()
         self._make_macro_button()
  
         # check for virtual keyboard
@@ -205,11 +198,16 @@ class Build_GUI(gobject.GObject):
         # set initial values for all widgets
         self._init_widgets()
         self._activate_widgets()
+
+        self._init_gremlin()
+
+        # if we have a lathe, we need to rearrange some stuff
+        # we will do that in a separate function
+        if self.lathe_mode:
+            self._make_lathe()
         
         panel = gladevcp.makepins.GladePanel(self.halcomp, XMLNAME, self.builder, None)
 
-        # finally show the main window
-        self.widgets.window1.show()
 
 
 ###############################################################################
@@ -219,12 +217,9 @@ class Build_GUI(gobject.GObject):
     def _make_DRO(self):
         print("**** GMOCCAPY build_GUI INFO ****")
         print("**** Entering make_DRO")
+        print("axis_list = {0}".format(self.axis_list))
         
-        # if we have a lathe, we will need an additional DRO to display
-        # diameter and radius, we build that separately
-        if self.lathe_mode:
-            self._this_is_a_lathe()
-        # on all other cases we build one DRO for each axis
+        # we build one DRO for each axis
         self.dro_dic = {} 
         for pos, axis in enumerate(self.axis_list):
             joint = self._get_joint_from_joint_axis_dic(axis)
@@ -233,10 +228,18 @@ class Build_GUI(gobject.GObject):
             dro.set_axis(axis)
             dro.change_axisletter(axis.upper())
             dro.show()
-            dro.set_property("name", "Combi_DRO_{0}".format(axis))
+            dro.set_property("name", "Combi_DRO_{0}".format(pos))
+            dro.set_property("abs_color", gtk.gdk.color_parse(self.abs_color))
+            dro.set_property("rel_color", gtk.gdk.color_parse(self.rel_color))
+            dro.set_property("dtg_color", gtk.gdk.color_parse(self.dtg_color))
+            dro.set_property("homed_color", gtk.gdk.color_parse(self.homed_color))
+            dro.set_property("unhomed_color", gtk.gdk.color_parse(self.unhomed_color))
+            dro.set_property("actual", self.dro_actual)
             dro.connect("clicked", self._on_DRO_clicked)
             self.dro_dic[dro.name] = dro
-        self._arange_dro()
+        # if we have a lathe we will arrange them later
+        if not self.lathe_mode:
+            self._arrange_dro()
 
     def _make_ref_button(self):
         print("**** GMOCCAPY build_GUI INFO ****")
@@ -368,7 +371,7 @@ class Build_GUI(gobject.GObject):
             name = "touch_{0}".format(elem)
             btn = self._get_button_with_image(name, filepath, None)
             btn.set_property("tooltip-text", _("Press to set touch off value for axis {0}".format(elem.upper())))
-#            btn.connect("clicked", self._on_btn_touch_clicked)
+# ToDo            btn.connect("clicked", self._on_btn_touch_clicked)
 
             self.widgets.hbtb_touch_off.pack_start(btn)
             
@@ -475,6 +478,53 @@ class Build_GUI(gobject.GObject):
         self.active_increment = rbt0
         return self.active_increment, self.incr_dic
 
+    def _make_jog_button(self):
+        self.jog_button_dic = {}
+
+        print ("Trivial kinematics = ", self.trivial_kinematics)
+        #ToDo : we have to check for non trivial kinematics, as in that case we need also Joint joggin button
+        if not self.trivial_kinematics:
+            # we need joint jogging button
+            print ("Trivial kinematics = ", self.trivial_kinematics)
+
+        self.jog_button_dic = {}
+        
+        for axis in self.axis_list:
+            for direction in ["+","-"]:
+                name = "{0}{1}".format(str(axis), direction)
+                btn = gtk.Button(name.upper())
+                btn.set_property("name", name)
+                btn.connect("pressed", self._on_btn_jog_pressed, axis, direction)
+                btn.connect("released", self._on_btn_jog_released, axis, direction)
+                btn.set_property("tooltip-text", _("Press to jog axis {0}".format(axis)))
+                btn.modify_bg(gtk.STATE_ACTIVE, gtk.gdk.color_parse("#FFFF00"))
+
+                self.jog_button_dic[name] = btn
+                
+        self._arrange_jog_button()
+
+    def _on_btn_jog_pressed(self, widget, axis, direction):
+        print(widget, axis, direction)
+        print ("Axis pressed = {0}".format(widget.get_property("name")))
+        self.emit("jog_btn_pressed", axis, direction)
+
+    def _on_btn_jog_released(self, widget, axis, direction):
+        print(widget, axis, direction)
+        print ("Axis released = {0}".format(widget.get_property("name")))
+        self.emit("jog_btn_released", axis, direction)
+
+    def on_btn_jog_pressed(self, widget):
+        print(widget.get_label())
+        name = widget.get_label()
+        print ("Joint pressed = {0}".format(name))
+        self.emit("jog_btn_pressed", name[0], name[-1])
+
+    def on_btn_jog_released(self, widget):
+        print(widget.get_label())
+        name = widget.get_label()
+        print ("Joint released = {0}".format(name))
+        self.emit("jog_btn_released", name[0], name[-1])
+
     # check if macros are in the INI file and add them to MDI Button List
     def _make_macro_button(self):
         print("**** GMOCCAPY build_GUI INFO ****")
@@ -526,10 +576,12 @@ class Build_GUI(gobject.GObject):
         name = "keyboard"
         btn = self._get_button_with_image(name, filepath, None)
         btn.set_property("tooltip-text", _("Press to display the virtual keyboard"))
-#        btn.connect("clicked", self.on_btn_show_kbd_clicked)
+        btn.connect("clicked", self.on_btn_show_kbd_clicked)
+        btn.set_property("name", name)
         self.widgets.hbtb_MDI.pack_start(btn)
 
         self.macro_dic = {}
+        
         children = self.widgets.hbtb_MDI.get_children()
         for child in children:
             self.macro_dic[child.name] = child
@@ -603,110 +655,29 @@ class Build_GUI(gobject.GObject):
             except:
                 pass
 
-# Onboard keybord handling End
+# Onboard keyboard handling End
 # =============================================================
 
-
-    def _this_is_a_lathe(self):
-        print("**** GMOCCAPY build_GUI INFO ****")
-        print("**** we have a lathe here")
-        
-        print(self.joint_axis_dic)
-
-        for dro in range(len(self.axis_list) + 1, 9):
-            self.widgets["Combi_DRO_{0}".format(dro)].destroy()
-            print(" Combi_DRO_{0} has been destroyed".format(dro))
-
-        for dro in range(len(self.axis_list) + 1):
-            self.widgets.tbl_DRO.remove(self.widgets["Combi_DRO_{0}".format(dro)])
-
-        self.widgets.tbl_DRO.resize(len(self.axis_list) + 1, 1)
-
-        # We will use Joint 1 as D DRO and Joint 1 as R DRO, 
-        # that's why the are arrange them in different order 
-        self.widgets.tbl_DRO.attach(self.widgets.Combi_DRO_0, 0, 1, 0, 1)
-        self.widgets.tbl_DRO.attach(self.widgets.Combi_DRO_1, 0, 1, 1, 2)
-        self.widgets.tbl_DRO.attach(self.widgets.Combi_DRO_2, 0, 1, 2, 3)
-
-        # The DRO 1 we make to a second X DRO to indicate the diameter
-        # and the DRO has to be shown
-        joint = self._get_joint_from_joint_axis_dic("x")
-        print("Axis X = Joint ", joint)
-        self.widgets.Combi_DRO_0.set_joint_no(joint)
-        self.widgets.Combi_DRO_1.set_joint_no(joint)
-        self.widgets.Combi_DRO_1.set_axis("x")
-        self.widgets.Combi_DRO_1.set_to_diameter(True)
-        self.widgets.Combi_DRO_1.show()
-
-        # we change the axis letters of the DRO's
-        self.widgets.Combi_DRO_0.change_axisletter("R")
-        self.widgets.Combi_DRO_1.change_axisletter("D")
-
-        # the DRO 2 will be the Z DRO
-        joint = self._get_joint_from_joint_axis_dic("z")
-        print("Axis Z = Joint ", joint)
-        self.widgets.Combi_DRO_2.set_joint_no(joint)
-        self.widgets.Combi_DRO_2.set_axis("z")
-        self.widgets.Combi_DRO_2.change_axisletter("Z")
-        self.widgets.Combi_DRO_2.show()
-
-
-        # we first hide the Y button to home and touch off
-        self.widgets.btn_set_value_y.hide()
-        self.widgets.lbl_replace_set_value_y.show()
-        self.widgets.btn_tool_touchoff_x.show()
-        self.widgets.lbl_hide_tto_x.hide()
-
-        # we have to re-arrange the jog buttons, so first remove all button
-        self.widgets.tbl_jog_btn_axes.remove(self.widgets.btn_y_minus)
-        self.widgets.tbl_jog_btn_axes.remove(self.widgets.btn_y_plus)
-        self.widgets.tbl_jog_btn_axes.remove(self.widgets.btn_x_minus)
-        self.widgets.tbl_jog_btn_axes.remove(self.widgets.btn_x_plus)
-        self.widgets.tbl_jog_btn_axes.remove(self.widgets.btn_z_minus)
-        self.widgets.tbl_jog_btn_axes.remove(self.widgets.btn_z_plus)
-
-        # is this a backtool lathe?
-        self.backtool_lathe = self.get_ini_info.get_backtool_lathe()
-
-        # now we place them in a different order
-        if self.backtool_lathe:
-            self.widgets.tbl_jog_btn_axes.attach(self.widgets.btn_x_plus, 1, 2, 0, 1, gtk.SHRINK, gtk.SHRINK)
-            self.widgets.tbl_jog_btn_axes.attach(self.widgets.btn_x_minus, 1, 2, 2, 3, gtk.SHRINK, gtk.SHRINK)
-        else:
-            self.widgets.tbl_jog_btn_axes.attach(self.widgets.btn_x_plus, 1, 2, 2, 3, gtk.SHRINK, gtk.SHRINK)
-            self.widgets.tbl_jog_btn_axes.attach(self.widgets.btn_x_minus, 1, 2, 0, 1, gtk.SHRINK, gtk.SHRINK)
-        self.widgets.tbl_jog_btn_axes.attach(self.widgets.btn_z_plus, 2, 3, 1, 2, gtk.SHRINK, gtk.SHRINK)
-        self.widgets.tbl_jog_btn_axes.attach(self.widgets.btn_z_minus, 0, 1, 1, 2, gtk.SHRINK, gtk.SHRINK)
-
-        # and we will have to change the colors of the Y DRO according to the settings
-#                self.widgets.Combi_DRO_1.set_property("abs_color", gtk.gdk.color_parse(self.abs_color))
-#                self.widgets.Combi_DRO_1.set_property("rel_color", gtk.gdk.color_parse(self.rel_color))
-#                self.widgets.Combi_DRO_1.set_property("dtg_color", gtk.gdk.color_parse(self.dtg_color))
-#                self.widgets.Combi_DRO_1.set_property("homed_color", gtk.gdk.color_parse(self.homed_color))
-#                self.widgets.Combi_DRO_1.set_property("unhomed_color", gtk.gdk.color_parse(self.unhomed_color))
-#                self.widgets.Combi_DRO_1.set_property("actual", self.dro_actual)
-
-        # For gremlin we don"t need the following button
-        if self.backtool_lathe:
-            self.widgets.rbt_view_y2.set_active(True)
-        else:
-            self.widgets.rbt_view_y.set_active(True)
-        self.widgets.rbt_view_p.hide()
-        self.widgets.rbt_view_x.hide()
-        self.widgets.rbt_view_z.hide()
-
-#                # check if G7 or G8 is active
-#                if "70" in self.stat.gcodes:
-#                    self._switch_to_g7(True)
-#                else:
-#                    self._switch_to_g7(False)
-
+    # init the preview
+    def _init_gremlin(self):
+        grid_size = self.prefs.getpref('grid_size', 1.0, float)
+        self.widgets.grid_size.set_value(grid_size)
+        self.widgets.gremlin.grid_size = grid_size
+        view = self.prefs.getpref('view', "p", str)
+        print("got view ",view)
+        self.widgets.gremlin.set_property("view", view)
+        self.widgets.gremlin.set_property("metric_units", int( self.metric))
+        self.widgets.gremlin.set_property("mouse_btn_mode", self.prefs.getpref("mouse_btn_mode", 4, int))
+        self.widgets.gremlin.set_property("use_commanded", not self.dro_actual)
+        self.widgets.eb_program_label.modify_bg(gtk.STATE_NORMAL, gtk.gdk.Color(0, 0, 0))
+        self.widgets.eb_blockheight_label.modify_bg(gtk.STATE_NORMAL, gtk.gdk.Color(0, 0, 0))
+        self.widgets.rbt_view_y2.hide()
 
 ###############################################################################
 ##                        hide or display widgets                            ##
 ###############################################################################
 
-    # the user want a Logo 
+    # the user want a Logo
     def logo(self,logofile):
         self.widgets.img_logo.set_from_file(logofile)
         self.widgets.img_logo.show()
@@ -1132,16 +1103,23 @@ class Build_GUI(gobject.GObject):
         self.widgets.ntb_info.set_current_page(0)
 
     def on_btn_show_kbd_clicked(self, widget):
+        print("show Keyboard clicked")
+        print self.dro_dic
+        
+#        self.dro_dic["Combi_DRO_2"].set_property("abs_color", gtk.gdk.color_parse("#F2F1F0"))
+#        self.dro_dic["Combi_DRO_2"].set_property("rel_color", gtk.gdk.color_parse("#F2F1F0"))
+#        self.dro_dic["Combi_DRO_2"].set_property("dtg_color", gtk.gdk.color_parse("#F2F1F0"))
+       
         # if the image is img_brake macro, we want to interrupt the running macro
-        if self.widgets.btn_show_kbd.get_image() == self.widgets.img_brake_macro:
+        if self.macro_dic["keyboard"].get_image() == self.widgets.img_brake_macro:
             self.emit("mdi_abort")
             for pos in self.macro_dic:
                 self.macro_dic[pos].set_sensitive(True)
             if self.onboard:
-                self.widgets.btn_show_kbd.set_image(self.widgets.img_keyboard)
-                self.widgets.btn_show_kbd.set_property("tooltip-text", _("This button will show or hide the keyboard"))
+                self.macro_dic["keyboard"].set_image(self.widgets.img_keyboard)
+                self.macro_dic["keyboard"].set_property("tooltip-text", _("This button will show or hide the keyboard"))
             else:
-                self.widgets.btn_show_kbd.set_sensitive(False)
+                self.macro_dic["keyboard"].set_sensitive(False)
         elif self.widgets.ntb_info.get_current_page() == 1:
             self.widgets.ntb_info.set_current_page(0)
         else:
@@ -1195,26 +1173,32 @@ class Build_GUI(gobject.GObject):
         if self.widgets.rbt_view_p.get_active():
             self.widgets.gremlin.set_property("view", "p")
         self.prefs.putpref("gremlin_view", "rbt_view_p")
+        self.prefs.putpref("view", "p")
 
     def on_rbt_view_x_toggled(self, widget):
         if self.widgets.rbt_view_x.get_active():
             self.widgets.gremlin.set_property("view", "x")
         self.prefs.putpref("gremlin_view", "rbt_view_x")
+        self.prefs.putpref("view", "x")
 
     def on_rbt_view_y_toggled(self, widget):
         if self.widgets.rbt_view_y.get_active():
             self.widgets.gremlin.set_property("view", "y")
         self.prefs.putpref("gremlin_view", "rbt_view_y")
+        self.prefs.putpref("view", "y")
 
     def on_rbt_view_z_toggled(self, widget):
         if self.widgets.rbt_view_z.get_active():
             self.widgets.gremlin.set_property("view", "z")
         self.prefs.putpref("gremlin_view", "rbt_view_z")
+        self.prefs.putpref("view", "z")
 
     def on_rbt_view_y2_toggled(self, widget):
+        print("widget = ", widget.get_active())
         if self.widgets.rbt_view_y2.get_active():
             self.widgets.gremlin.set_property("view", "y2")
         self.prefs.putpref("gremlin_view", "rbt_view_y2")
+        self.prefs.putpref("view", "y2")
 
     def on_btn_zoom_in_clicked(self, widget):
         self.widgets.gremlin.zoom_in()
@@ -1241,30 +1225,6 @@ class Build_GUI(gobject.GObject):
 ##                       internal button handling                            ##
 ##                             setup page                                    ##
 ###############################################################################
-
-# ToDo Start : shell the button remain in gmoccapy ??
-
-    def on_chk_auto_units_toggled(self, widget, data=None):
-        for axis in self.axis_list:
-            dro_name = "Combi_DRO_{0}".format(axis)
-            dro = self.dro_dic[dro_name]
-            dro.set_auto_units(self.widgets.chk_auto_units.get_active())
-        if self.lathe_mode:
-            self.dro_dic["Combi_DRO_y"].set_auto_units(self.widgets.chk_auto_units.get_active())
-        self.prefs.putpref("use_auto_units", self.widgets.chk_auto_units.get_active())
-
-    def on_chk_show_dro_btn_toggled(self, widget, data=None):
-        if self.widgets.chk_show_dro_btn.get_active():
-            self.widgets.tbl_dro_button.show()
-            self.widgets.chk_auto_units.set_active(False)
-            self.widgets.chk_auto_units.set_sensitive(False)
-        else:
-            self.widgets.tbl_dro_button.hide()
-            self.widgets.chk_auto_units.set_active(True)
-            self.widgets.chk_auto_units.set_sensitive(True)
-        self.prefs.putpref("show_dro_btn", self.widgets.chk_show_dro_btn.get_active())
-
-# ToDo End : shell the button remain in gmoccapy ??
 
 
 ###############################################################################
@@ -1315,27 +1275,9 @@ class Build_GUI(gobject.GObject):
 # ToDo : End - do we realy need screen 2?
 
     def _on_DRO_clicked(self, widget, joint, order):
-        print("clicked on DRO ", widget.name, joint, order)
         for dro in self.dro_dic:
             self.dro_dic[dro].set_order(order)
         return
-
-# ToDo : Start -from here only needed, if the DRO button will remain in gmoccapy
-        self._offset_changed(None, None)
-        if order[0] == "Abs" and self.widgets.tbtn_rel.get_label() != "Abs":
-            self.widgets.tbtn_rel.set_active(False)
-        if order[0] == "Rel" and self.widgets.tbtn_rel.get_label() != self.widgets.Combi_DRO_0.system:
-            self.widgets.tbtn_rel.set_active(True)
-        if order[0] == "DTG":
-            self.widgets.tbtn_dtg.set_active(True)
-        else:
-            self.widgets.tbtn_dtg.set_active(False)
-# ToDo : End -to here only needed, if the DRO button will remain in gmoccapy
-
-
-
-
-
 
 ###############################################################################
 ##                          helper functions                                 ##
@@ -1437,24 +1379,25 @@ class Build_GUI(gobject.GObject):
             value = value + "0"
         return self.joint_axis_dic.keys()[self.joint_axis_dic.values().index(value)]
 
-#    def _get_widget_from_dic(self, dic, name):
-#        print dic
-#        return #dic.keys()[dic.values().index(name)]
+    def get_widget_from_dic(self, dic, name):
+        print dic
+        return dic.keys()[dic.values().index(name)]
         
-    def _arange_dro(self):
+    def _arrange_dro(self):
         # if we have less than 4 axis, we can resize the table, as we have 
-        # enough space to display each one in it's own line  
-        if len(self.axis_list) < 4:
-            self._place_in_table(len(self.axis_list),1, self.dro_size)
+        # enough space to display each one in it's own line
+
+        if len(self.dro_dic) < 4:
+            self._place_in_table(len(self.dro_dic),1, self.dro_size)
 
         # having 4 DRO we need to reduce the size, to fit the available space
-        elif len(self.axis_list) == 4:
-            self._place_in_table(len(self.axis_list),1, self.dro_size * 0.75)
+        elif len(self.dro_dic) == 4:
+            self._place_in_table(len(self.dro_dic),1, self.dro_size * 0.75)
 
         # having 5 axis we will display 3 in an one line and two DRO share 
         # the last line, the size of the DRO must be reduced also
         # this is a special case so we do not use _place_in_table
-        elif len(self.axis_list) == 5:
+        elif len(self.dro_dic) == 5:
             self.widgets.tbl_DRO.resize(4,2)
             for dro, axis in enumerate(self.axis_list):
                 dro_name = "Combi_DRO_{0}".format(axis)
@@ -1476,21 +1419,39 @@ class Build_GUI(gobject.GObject):
             print("**** GMOCCAPY build_GUI INFO ****")
             print("**** more than 5 axis ")
             # check if amount of axis is an even number, adapt the needed lines
-            if len(self.axis_list) % 2 == 0:
-                rows = len(self.axis_list) / 2
+            if len(self.dro_dic) % 2 == 0:
+                rows = len(self.dro_dic) / 2
             else:
-                rows = (len(self.axis_list) + 1) / 2
+                rows = (len(self.dro_dic) + 1) / 2
             self._place_in_table(rows, 2, self.dro_size * 0.65)
 
+        # set values to dro size adjustments
+        self.widgets.adj_dro_size.set_value(self.dro_size)
+
     def _place_in_table(self, rows, cols, dro_size):
+        print("gmoccapy build_gui INFO")
+        print ("we are in place in table")
+
         self.widgets.tbl_DRO.resize(rows, cols)
         col = 0
         row = 0
-        for dro, axis in enumerate(self.axis_list):
-            dro_name = "Combi_DRO_{0}".format(axis)
 
+        # if Combi_DRO_9 exist we have a lathe with an additional DRO for diameter mode
+        if "Combi_DRO_9" in self.dro_dic.keys():
+            children = self.widgets.tbl_DRO.get_children()
+            print (children)
+            dro_order = ["Combi_DRO_0", "Combi_DRO_9", "Combi_DRO_1", "Combi_DRO_2", "Combi_DRO_3",
+                         "Combi_DRO_4", "Combi_DRO_5", "Combi_DRO_6", "Combi_DRO_7", "Combi_DRO_8"]
+        else:
+            dro_order = sorted(self.dro_dic.keys())
+
+        for dro, dro_name in enumerate(dro_order):
+            # as a lathe might not have all Axis, we check if the key is in directory
+            if dro_name not in self.dro_dic.keys():
+                continue
             self.dro_dic[dro_name].set_property("font_size", dro_size)
-            self.widgets.tbl_DRO.attach(self.dro_dic[dro_name], 
+
+            self.widgets.tbl_DRO.attach(self.dro_dic[dro_name],
                                         col, col+1, row, row + 1, ypadding = 0)
             if cols > 1:
                 # calculate if we have to place in the first or the second column
@@ -1502,13 +1463,90 @@ class Build_GUI(gobject.GObject):
             else:
                 row += 1
 
+    def _arrange_jog_button(self):
+        num_axis = len(self.jog_button_dic)
+        print("length of button dictionary = {0}".format(num_axis))
+
+        if num_axis <= 3:
+            # we can resize the jog_btn_table
+            self.widgets.tbl_jog_btn_axes.resize(3, 3)
+            # This is probably a lathe, but we will better check that
+
+        for btn in self.jog_button_dic:
+
+            name = btn
+            if name == "x+":
+                col = 2
+                row = 1
+            if name =="x-":
+                col = 0
+                row = 1
+            if name == "y+":
+                col = 1
+                row = 0
+            if name =="y-":
+                col = 1
+                row = 2
+            if name == "z+":
+                col = 2
+                row = 0
+            if name =="z-":
+                col = 0
+                row = 2
+            if name == "a+":
+                col = 4
+                row = 3
+            if name =="a-":
+                col = 3
+                row = 3
+            if name == "b+":
+                col = 2
+                row = 3
+            if name =="b-":
+                col = 0
+                row = 3
+            if name == "c+":
+                col = 2
+                row = 2
+            if name =="c-":
+                col = 0
+                row = 0
+            if name == "u+":
+                col = 4
+                row = 0
+            if name =="u-":
+                col = 3
+                row = 0
+            if name == "v+":
+                col = 4
+                row = 1
+            if name =="v-":
+                col = 3
+                row = 1
+            if name == "w+":
+                col = 4
+                row = 2
+            if name =="w-":
+                col = 3
+                row = 2
+                
+                
+            self.widgets.tbl_jog_btn_axes.attach(self.jog_button_dic[name], col, col + 1, row, row + 1)
+            self.jog_button_dic[name].show()
+
+            print("Jog Button = {0}".format(name))
+            print("Position = {0},{1}".format(col,row))
+
     def _get_ini_data(self):
         # get the axis list from INI
         self.axis_list = self.get_ini_info.get_axis_list()
         # get the joint axis relation from INI
         self.joint_axis_dic, self.double_axis_letter = self.get_ini_info.get_joint_axis_relation()
-        # if it's a lathe config, set the tooleditor style
+        # if it's a lathe config, set the tool editor style
         self.lathe_mode = self.get_ini_info.get_lathe()
+        if self.lathe_mode:
+            # we do need to know also if we have a backtool lathe
+            self.backtool_lathe = self.get_ini_info.get_backtool_lathe()
         # check if the user want actual or commanded for the DRO
         self.dro_actual = self.get_ini_info.get_position_feedback_actual()
         # the given Jog Increments
@@ -1518,6 +1556,11 @@ class Build_GUI(gobject.GObject):
         # do we use a identity kinematics or do we have to distingish 
         # JOINT and Axis modes?
         self.trivial_kinematics = self.get_ini_info.get_trivial_kinematics()
+        units = self.get_ini_info.get_machine_units()
+        if units == "mm" or units == "cm":
+            self.metric = True
+        else:
+            self.metric = False
 
     def _get_pref_data(self):
         # the size of the DRO
@@ -1656,8 +1699,27 @@ class Build_GUI(gobject.GObject):
         except:
             print("We do not have a X axis, very strange")
 
+    def switch_to_g7(self, state):
+        # we do this only if we have a lathe, the check for lathe is done in gmoccapy
+        print state
+        if state:
+            self.dro_dic["Combi_DRO_0"].set_property("abs_color", gtk.gdk.color_parse("#F2F1F0"))
+            self.dro_dic["Combi_DRO_0"].set_property("rel_color", gtk.gdk.color_parse("#F2F1F0"))
+            self.dro_dic["Combi_DRO_0"].set_property("dtg_color", gtk.gdk.color_parse("#F2F1F0"))
+            self.dro_dic["Combi_DRO_9"].set_property("abs_color", gtk.gdk.color_parse(self.abs_color))
+            self.dro_dic["Combi_DRO_9"].set_property("rel_color", gtk.gdk.color_parse(self.rel_color))
+            self.dro_dic["Combi_DRO_9"].set_property("dtg_color", gtk.gdk.color_parse(self.dtg_color))
+            self.diameter_mode = True
+        else:
+            self.dro_dic["Combi_DRO_9"].set_property("abs_color", gtk.gdk.color_parse("#F2F1F0"))
+            self.dro_dic["Combi_DRO_9"].set_property("rel_color", gtk.gdk.color_parse("#F2F1F0"))
+            self.dro_dic["Combi_DRO_9"].set_property("dtg_color", gtk.gdk.color_parse("#F2F1F0"))
+            self.dro_dic["Combi_DRO_0"].set_property("abs_color", gtk.gdk.color_parse(self.abs_color))
+            self.dro_dic["Combi_DRO_0"].set_property("rel_color", gtk.gdk.color_parse(self.rel_color))
+            self.dro_dic["Combi_DRO_0"].set_property("dtg_color", gtk.gdk.color_parse(self.dtg_color))
+            self.diameter_mode = False
 
-
+        print("diameter mode = {0}".format(self.diameter_mode))
 
 ###############################################################################
 ##                            signal handling                                ##
@@ -2063,39 +2125,6 @@ class Build_GUI(gobject.GObject):
         self.widgets.homed_colorbtn.set_color(gtk.gdk.color_parse(self.homed_color))
         self.widgets.unhomed_colorbtn.set_color(gtk.gdk.color_parse(self.unhomed_color))
 
-        # set the colors for the DRO
-        for axis in self.axis_list:
-            dro_name = "Combi_DRO_{0}".format(axis)
-            dro = self.dro_dic[dro_name]
-            dro.set_property("abs_color", gtk.gdk.color_parse(self.abs_color))
-            dro.set_property("rel_color", gtk.gdk.color_parse(self.rel_color))
-            dro.set_property("dtg_color", gtk.gdk.color_parse(self.dtg_color))
-            dro.set_property("homed_color", gtk.gdk.color_parse(self.homed_color))
-            dro.set_property("unhomed_color", gtk.gdk.color_parse(self.unhomed_color))
-            dro.set_property("actual", self.dro_actual)
-
-        # set values to dro size adjustments
-        self.widgets.adj_dro_size.set_value(self.dro_size)
-
-# ToDo Start : shell the button remain in gmoccapy ??
-
-        # Only used if the DRO buttons will remain in gmoccapy
-        self.widgets.chk_show_dro_btn.set_active(self.prefs.getpref("show_dro_btn", False, bool))
-        self.widgets.chk_auto_units.set_active(self.prefs.getpref("use_auto_units", True, bool))
-
-        dro = self.dro_dic[self.dro_dic.keys()[0]]
-        try: 
-            if dro.machine_units == _INCH:
-                self.widgets.tbtn_units.set_active(True)
-        except:
-            print("We do not have a X axis, very strange")
-
-        self.widgets.tbtn_rel.modify_bg(gtk.STATE_ACTIVE, gtk.gdk.color_parse("#FFFF00"))
-        self.widgets.tbtn_dtg.modify_bg(gtk.STATE_ACTIVE, gtk.gdk.color_parse("#FFFF00"))
-        self.widgets.tbtn_units.modify_bg(gtk.STATE_ACTIVE, gtk.gdk.color_parse("#FFFF00"))
-
-# ToDo End : shell the button remain in gmoccapy ??
-
 
         # set the velocity settings to adjustments
         self.widgets.adj_spindle_bar_min.set_value(self.min_spindle_rev)
@@ -2116,10 +2145,10 @@ class Build_GUI(gobject.GObject):
         # gremlin related stuff
         self.widgets.tbtn_view_tool_path.set_active(self.prefs.getpref("view_tool_path", True, bool))
         self.widgets.tbtn_view_dimension.set_active(self.prefs.getpref("view_dimension", True, bool))
-        view = self.prefs.getpref("gremlin_view", "rbt_view_p", str)
-        self.widgets[view].set_active(True)
+        #view = self.prefs.getpref("gremlin_view", "rbt_view_p", str)
+        #self.widgets[view].set_active(True)
         self.widgets.cmb_mouse_button_mode.set_active(self.prefs.getpref("mouse_btn_mode", 4, int))
-        
+
         # Popup Messages position and size
         self.widgets.adj_x_pos_popup.set_value(self.prefs.getpref("x_pos_popup", 45, float))
         self.widgets.adj_y_pos_popup.set_value(self.prefs.getpref("y_pos_popup", 55, float))
@@ -2197,16 +2226,87 @@ class Build_GUI(gobject.GObject):
 
 ###############################################################################
 ##                   initial clicking and toggling                           ##
-###############################################################################    
+###############################################################################
 
     def _activate_widgets(self):
+        pass
 
-# ToDo Start : shell the button remain in gmoccapy ??
+    # if this is a lathe we need to rearrange some button and add a additional DRO
+    def _make_lathe(self):
+        print("**** GMOCCAPY build_GUI INFO ****")
+        print("**** we have a lathe here")
 
-        self.on_chk_show_dro_btn_toggled(None)
-        self.on_chk_auto_units_toggled(None)
-        
-# ToDo End : shell the button remain in gmoccapy ??
+        # if we have a lathe, we will need an additional DRO to display
+        # diameter and radius simultaneous, we will call that one Combi_DRO_9, as that value
+        # should never be used due to the limit in axis from 0 to 8
+
+        dro = Combi_DRO()
+        dro.set_property("name", "Combi_DRO_9")
+        dro.set_property("abs_color", gtk.gdk.color_parse(self.abs_color))
+        dro.set_property("rel_color", gtk.gdk.color_parse(self.rel_color))
+        dro.set_property("dtg_color", gtk.gdk.color_parse(self.dtg_color))
+        dro.set_property("homed_color", gtk.gdk.color_parse(self.homed_color))
+        dro.set_property("unhomed_color", gtk.gdk.color_parse(self.unhomed_color))
+        dro.set_property("actual", self.dro_actual)
+
+        joint = self._get_joint_from_joint_axis_dic("x")
+        dro.set_joint_no(joint)
+        dro.set_axis("x")
+        dro.change_axisletter("D")
+        dro.set_property("diameter", True)
+        dro.show()
+
+        dro.connect("clicked", self._on_DRO_clicked)
+        self.dro_dic[dro.name] = dro
+
+        self.dro_dic["Combi_DRO_0"].change_axisletter("R")
+
+        self._arrange_dro()
+
+        # For gremlin we don"t need the following button
+        if self.backtool_lathe:
+            self.widgets.rbt_view_y2.set_active(True)
+            self.widgets.gremlin.set_property("view", "y2")
+            self.prefs.putpref("gremlin_view", "rbt_view_y2")
+        else:
+            self.widgets.rbt_view_y.set_active(True)
+            self.widgets.gremlin.set_property("view", "y")
+            self.prefs.putpref("gremlin_view", "rbt_view_y")
+
+        self.widgets.rbt_view_p.hide()
+        self.widgets.rbt_view_x.hide()
+        self.widgets.rbt_view_z.hide()
+        self.widgets.rbt_view_y2.show()
+
+        # this is from jog button
+        print("self.jog_button_dic = ", self.jog_button_dic.keys())
+
+        return
+        if self.lathe_mode:
+            # OK this is a lathe, lets see if it is a backtool_lathe
+            if self.backtool_lathe:
+                # Now we are sure we have a backtool lathe
+                # as we only expect X an Z, lets place them in the table
+                for btn in btnlst:
+                    name = btn.get_property("name")
+                    if name == "x+":
+                        col = 1
+                        row = 0
+                    if name == "x-":
+                        col = 1
+                        row = 2
+                    if name == "y+":
+                        col = 2
+                        row = 0
+                    if name == "y-":
+                        col = 0
+                        row = 2
+                    if name == "z+":
+                        col = 0
+                        row = 1
+                    if name == "z-":
+                        col = 2
+                        row = 1
 
 ###############################################################################
 ##                  set initial global values value                          ##
@@ -2227,7 +2327,7 @@ class Build_GUI(gobject.GObject):
 
         self.estop_active = True  # will handle the estop state
         self.machine_on = False   # will handle the machine is on state
-        self.mode = "MAN"         # The actaul mode
+        self.mode = "MAN"         # The actual mode
         self.interpreter = "IDLE" # The interpreter state
 
         self.motion_mode = 0      # initial start will be done in Joints mode
@@ -2240,7 +2340,5 @@ class Build_GUI(gobject.GObject):
         self.tool_change = False  # this is needed to get back to manual mode after a tool change
         self.load_tool = False    # We use this avoid mode switching on reloading the tool on start up of the GUI
         
-# ToDo : start check if this is needed
-        self.gcodeerror = ""
-# ToDo : end check if this is needed
+        self.diameter_mode = False # Check if in lathe mode we are in diameter mode (G7 or G8)
 
