@@ -1,19 +1,19 @@
 # connect encoder count, select the one you need
 net jog-counts       pendant.jog-wheel-counts
-net jog-counts       axis.0.jog-counts 
-net jog-counts       axis.2.jog-counts
+net jog-counts       axis.x.jog-counts 
+net jog-counts       axis.z.jog-counts
  
-net jog-x   axis.0.jog-enable   <=   pendant.jog-x
-net jog-z   axis.2.jog-enable   <=   pendant.jog-z
+net jog-x   axis.x.jog-enable   <=   pendant.jog-x
+net jog-z   axis.z.jog-enable   <=   pendant.jog-z
 
 # Set the scales per count / Faktor je count setzen
 # we could set them to fix value like
-# setp axis.2.jog-scale   0.05
-# setp axis.0.jog-scale   0.05
+# setp axis.x.jog-scale   0.05
+# setp axis.z.jog-scale   0.05
 # but also better do connect them to the jog- increments of FastSeal. 
 #net scale axis.2.jog-scale   <=   axis.0.jog-scale   <=   FastSeal.jog-increment
-setp axis.2.jog-scale   0.1
-setp axis.0.jog-scale   0.1
+setp axis.x.jog-scale   0.1
+setp axis.z.jog-scale   0.1
 
 # Connect all counts to Jogwheel-counts / Alle count san Jogwheel-counts anbinden
 net override-counts       pendant.override-wheel-counts
@@ -29,8 +29,8 @@ net override-counts       FastSeal.jog-speed.counts
 # 0 is default / 0 ist Standardwert
 # Mode 0 : after spinning the dial, axis may go on moving, because counts are still pending, Mode 1 will ignore pending steps
 # Mode 0 : Nach dem drehen des Handrades kann die Achse noch weiterlaufen, da noch Schritte auszuführen sind. Mode 1 hält sofort an
-setp axis.0.jog-vel-mode 1
-setp axis.2.jog-vel-mode 1
+setp axis.x.jog-vel-mode 1
+setp axis.z.jog-vel-mode 1
 
 net feed           FastSeal.feed-override.count-enable      <=   pendant.feed
 net spindle        FastSeal.spindle-override.count-enable   <=   pendant.spindle

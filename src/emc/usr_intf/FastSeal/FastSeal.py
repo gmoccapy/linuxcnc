@@ -72,26 +72,10 @@ def excepthook( exc_type, exc_obj, exc_tb ):
 
 sys.excepthook = excepthook
 
-debug = False
-
-if debug:
-    pydevdir = '/home/gmoccapy/Aptana_Studio_3/plugins/org.python.pydev_4.5.5.201603221110/pysrc'
-
-    if os.path.isdir( pydevdir ):  # and  'emctask' in sys.builtin_module_names:
-        sys.path.append( pydevdir )
-        sys.path.insert( 0, pydevdir )
-        try:
-            import pydevd
-
-            print( "pydevd imported, connecting to Eclipse debug server..." )
-            pydevd.settrace()
-        except:
-            print( "no pydevd module found" )
-            pass
 
 # constants
 #         # FastSeal  #"
-_RELEASE = "  0.8.1"
+_RELEASE = "  0.9.0"
 _INCH = 0                         # imperial units are active
 _MM = 1                           # metric units are active
 _TEMPDIR = tempfile.gettempdir()  # Now we know where the tempdir is, usualy /tmp
@@ -610,6 +594,10 @@ class FastSeal( object ):
             self.axis_list.append( letter.lower() )
 
     def _init_preferences( self ):
+        # we need to change axis Z axis letter, as Joint 1 will result in Y
+        self.widgets.Combi_DRO_z.set_property("joint_number", 1)
+        self.widgets.Combi_DRO_z.change_axisletter("Z")
+        
         # check if NO_FORCE_HOMING is used in ini
         self.no_force_homing = self.get_ini_info.get_no_force_homing()
         self.spindle_start_rpm = self.prefs.getpref( 'spindle_start_rpm', 300, float )
@@ -1222,6 +1210,7 @@ class FastSeal( object ):
         self._sensitize_widgets( widgetlist, False )
 
     def on_hal_status_homed( self, widget, data ):
+        print("Data = ", data)
         pass
 
     def on_hal_status_file_loaded( self, widget, filename ):
@@ -1902,10 +1891,10 @@ class FastSeal( object ):
 #                 self.widgets.tbtn_mist.set_image( self.widgets.img_mist_off )
 
     def _update_halui_pin( self ):
-        if self.spindle_override != self.stat.spindlerate:
+        if self.spindle_override != self.stat.spindle[0]['override']:
             self.initialized = False
-            self.widgets.adj_spindle.set_value( self.stat.spindlerate * 100 )
-            self.spindle_override = self.stat.spindlerate
+            self.widgets.spc_spindle.set_value(self.stat.spindle[0]['override'] * 100)
+            self.spindle_override = self.stat.spindle[0]['override']
             self.initialized = True
         if self.feed_override != self.stat.feedrate:
             self.initialized = False
@@ -2133,8 +2122,9 @@ class FastSeal( object ):
         self.widgets.tbtn_turtle_jog.set_active( bool( pin.get() ) )
 
     def on_btn_jog_pressed( self, widget, data = None ):
+
         # only in manual mode we will allow jogging the axis at this development state
-        if not self.stat.task_mode == linuxcnc.MODE_MANUAL:
+        if not self.stat.enabled or self.stat.task_mode != linuxcnc.MODE_MANUAL:
             return
 
         axisletter = widget.get_label()[0]
@@ -2160,14 +2150,16 @@ class FastSeal( object ):
         else:
             direction = -1
 
+        JOGMODE = 0
         if self.distance <> 0:  # incremental jogging
-            self.command.jog( linuxcnc.JOG_INCREMENT, axisnumber, direction * velocity, self.distance )
+            self.command.jog(linuxcnc.JOG_INCREMENT, JOGMODE, axisnumber, direction * velocity, self.distance)
         else:  # continuous jogging
-            self.command.jog( linuxcnc.JOG_CONTINUOUS, axisnumber, direction * velocity )
+            self.command.jog(linuxcnc.JOG_CONTINUOUS, JOGMODE, axisnumber, direction * velocity)
 
     def on_btn_jog_released( self, widget, data = None ):
+
         # only in manual mode we will allow jogging the axis at this development state
-        if not self.stat.task_mode == linuxcnc.MODE_MANUAL:
+        if not self.stat.enabled or self.stat.task_mode != linuxcnc.MODE_MANUAL:
             return
 
         axisletter = widget.get_label()[0]
@@ -2177,11 +2169,12 @@ class FastSeal( object ):
 
         axis = "xyzabcuvw".index( axisletter.lower() )
 
+        JOGMODE = 0
         # Otherwise the movement would stop before the desired distance was moved
         if self.distance <> 0:
             pass
         else:
-            self.command.jog( linuxcnc.JOG_STOP, axis )
+            self.command.jog(linuxcnc.JOG_STOP, JOGMODE, axis)
 
     # use the current loaded file to be loaded on start up
     def on_btn_use_current_clicked( self, widget, data = None ):
@@ -2348,25 +2341,26 @@ class FastSeal( object ):
 # =========================================================
 # spindle stuff
 
-    def _update_spindle( self ):
-        if self.stat.spindle_direction > 0:
-            self.widgets.rbt_forward.set_active( True )
-        elif self.stat.spindle_direction < 0:
-            self.widgets.rbt_reverse.set_active( True )
+    def _update_spindle(self):
+        if self.stat.spindle[0]['direction'] > 0:
+            self.widgets.rbt_forward.set_active(True)
+        elif self.stat.spindle[0]['direction'] < 0:
+            self.widgets.rbt_reverse.set_active(True)
         elif not self.widgets.rbt_stop.get_active():
-            self.widgets.rbt_stop.set_active( True )
+            self.widgets.rbt_stop.set_active(True)
+
         # this is needed, because otherwise a command S0 would not set active btn_stop
-        if not abs( self.stat.spindle_speed ):
-            self.widgets.rbt_stop.set_active( True )
+        if not abs(self.stat.spindle[0]['speed']):
+            self.widgets.rbt_stop.set_active(True)
             return
 
         # set the speed label in active code frame
-        if self.stat.spindle_speed == 0:
+        if self.stat.spindle[0]['speed'] == 0:
             speed = self.stat.settings[2]
         else:
-            speed = self.stat.spindle_speed
-        self.widgets.active_speed_label.set_label( "%.0f" % abs( speed ) )
-        self.on_adj_spindle_value_changed( self.widgets.adj_spindle )
+            speed = self.stat.spindle[0]['speed']
+        self.widgets.active_speed_label.set_label("{0:.0f}".format(abs(speed)))
+        self.widgets.lbl_spindle_act.set_text("S {0}".format(int(speed * self.spindle_override)))
 
     def on_rbt_forward_clicked( self, widget, data = None ):
         if widget.get_active():
@@ -2389,27 +2383,29 @@ class FastSeal( object ):
         else:
             self.widgets.rbt_stop.set_image( self.widgets.img_sstop )
 
-    def _set_spindle( self, command ):
+    def _set_spindle(self, command):
         # if we are in estop state, we will have to leave here, otherwise
         # we get an error, that switching spindle off is not allowed with estop
         if self.stat.task_state == linuxcnc.STATE_ESTOP:
             return
 
-        # if we do not check this, we will get an error in auto mode
-        if self.stat.task_mode == linuxcnc.MODE_AUTO:
+        # if we do not check this, we will get an error in auto mode and sub
+        # calls from MDI containing i.e. G96 would not run, as the speed will
+        # be setted to the commanded value due the next code part
+        if self.stat.task_mode != linuxcnc.MODE_MANUAL:
             if self.stat.interp_state == linuxcnc.INTERP_READING or self.stat.interp_state == linuxcnc.INTERP_WAITING:
-                if self.stat.spindle_direction > 0:
-                    self.widgets.rbt_forward.set_sensitive( True )
-                    self.widgets.rbt_reverse.set_sensitive( False )
-                    self.widgets.rbt_stop.set_sensitive( False )
-                elif self.stat.spindle_direction < 0:
-                    self.widgets.rbt_forward.set_sensitive( False )
-                    self.widgets.rbt_reverse.set_sensitive( True )
-                    self.widgets.rbt_stop.set_sensitive( False )
+                if self.stat.spindle[0]['direction'] > 0:
+                    self.widgets.rbt_forward.set_sensitive(True)
+                    self.widgets.rbt_reverse.set_sensitive(False)
+                    self.widgets.rbt_stop.set_sensitive(False)
+                elif self.stat.spindle[0]['direction'] < 0:
+                    self.widgets.rbt_forward.set_sensitive(False)
+                    self.widgets.rbt_reverse.set_sensitive(True)
+                    self.widgets.rbt_stop.set_sensitive(False)
                 else:
-                    self.widgets.rbt_forward.set_sensitive( False )
-                    self.widgets.rbt_reverse.set_sensitive( False )
-                    self.widgets.rbt_stop.set_sensitive( True )
+                    self.widgets.rbt_forward.set_sensitive(False)
+                    self.widgets.rbt_reverse.set_sensitive(False)
+                    self.widgets.rbt_stop.set_sensitive(True)
                 return
 
         rpm = self._check_spindle_range()
@@ -2417,20 +2413,20 @@ class FastSeal( object ):
         # we take care of that but we have to check for speed override 
         # to not be zero to avoid division by zero error
         try:
-            rpm_out = rpm / self.stat.spindlerate
+            rpm_out = rpm / self.stat.spindle[0]['override']
         except:
             rpm_out = 0
-        self.widgets.lbl_spindle_act.set_label( "S %s" % int( rpm ) )
+        self.widgets.lbl_spindle_act.set_label("S {0}".format(int(rpm)))
 
         if command == "stop":
-            self.command.spindle( 0 )
-            self.widgets.lbl_spindle_act.set_label( "S 0" )
-        if command == "forward":
-            self.command.spindle( 1, rpm_out )
+            self.command.spindle(0)
+            self.widgets.lbl_spindle_act.set_label("S 0")
+        elif command == "forward":
+            self.command.spindle(1, rpm_out)
         elif command == "reverse":
-            self.command.spindle( -1, rpm_out )
+            self.command.spindle(-1, rpm_out)
         else:
-            print( _( "Something went wrong, we have an unknown spindle widget" ) )
+            print(_("Something went wrong, we have an unknown spindle widget {0}").format(command))
 
     def _check_spindle_range( self ):
         rpm = ( self.stat.settings[2] )
