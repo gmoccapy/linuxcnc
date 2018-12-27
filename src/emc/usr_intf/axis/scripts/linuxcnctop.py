@@ -15,7 +15,7 @@
 #
 #    You should have received a copy of the GNU General Public License
 #    along with this program; if not, write to the Free Software
-#    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 import sys, os
 import linuxcnc, time
@@ -32,17 +32,35 @@ if len(sys.argv) > 1 and sys.argv[1] == '-ini':
 
 s = linuxcnc.stat(); s.poll()
 
+def show_spindles(l):
+    ct = 0; s = ""
+    for d in l:
+        for key in d:
+            s = s+"%d %20s %s\n"% (ct,key,d[key])
+        ct = ct+1
+    return s
+
 def show_mcodes(l):
     return " ".join(["M%g" % i for i in l[1:] if i != -1])
+    
 def show_gcodes(l):
     return " ".join(["G%g" % (i/10.) for i in l[1:] if i != -1])
-position = " ".join(["%-8.4f"] * s.axes)
+    
 def show_position(p):
-    return position % p[:s.axes]
-peraxis = " ".join(["%s"] * s.axes)
-def show_peraxis(p):
-    return peraxis % p[:s.axes]
+    return " ".join(["%-8.4f" % n for i, n in enumerate(p) if s.axis_mask & (1<<i)])
+
+joint_position = " ".join(["%-8.4f"] * s.joints)
+def show_joint_position(p):
+    return joint_position % p[:s.joints]
+
+perjoint = " ".join(["%s"] * s.joints)
+def show_perjoint(p):
+    return perjoint % p[:s.joints]
+    
 def show_float(p): return "%-8.4f" % p
+
+def show_floats(s): return " ".join(show_float(p) for p in s)
+def show_ints(s): return " ".join(str(bool(p)) for p in s)
 
 maps = {
 'exec_state': {linuxcnc.EXEC_ERROR: 'error',
@@ -68,26 +86,32 @@ maps = {
 'kinematics_type': {linuxcnc.KINEMATICS_IDENTITY: 'identity', linuxcnc.KINEMATICS_FORWARD_ONLY: 'forward_only', 
                     linuxcnc.KINEMATICS_INVERSE_ONLY: 'inverse_only', linuxcnc.KINEMATICS_BOTH: 'both'},
 'mcodes': show_mcodes, 'gcodes': show_gcodes, 'poll': None, 'tool_table': None,
-'axis': None, 'gettaskfile': None,
+'spindle':show_spindles,
+'axis': None, 'joint': None, 'gettaskfile': None,
 'actual_position': show_position, 
 'position': show_position, 
 'dtg': show_position, 
-'joint_position': show_position,
-'joint_actual_position': show_position,
 'origin': show_position,
 'rotation_xy': show_float,
 'probed_position': show_position,
 'tool_offset': show_position,
 'g5x_offset': show_position,
 'g92_offset': show_position,
-'limit': show_peraxis,
-'homed': show_peraxis,
 'linear_units': show_float,
 'max_acceleration': show_float,
 'max_velocity': show_float,
 'angular_units': show_float,
 'distance_to_go': show_float,
 'current_vel': show_float,
+'ain': show_floats,
+'aout': show_floats,
+'din': show_ints,
+'dout': show_ints,
+'settings': show_floats,
+'limit': show_perjoint,
+'homed': show_perjoint,
+'joint_position': show_joint_position,
+'joint_actual_position': show_joint_position,
 }
 
 if s.kinematics_type == 1:
@@ -101,7 +125,7 @@ def gui():
     rs274.options.install(root)
     root.title(_("LinuxCNC Status"))
 
-    t = Tkinter.Text()
+    t = Tkinter.Text(wrap="word")
     sb = Tkinter.Scrollbar(command=t.yview)
     t.configure(yscrollcommand=sb.set)
     t.configure(tabs=150)
@@ -138,6 +162,7 @@ def gui():
         except TclError:
             anchor_point = None
         first = True
+        now = time.time()
         for k in dir(s):
             if k.startswith("_"): continue
             if maps.has_key(k) and maps[k] == None: continue
@@ -148,18 +173,20 @@ def gui():
                     v = m(v)
                 else:
                     v = m.get(v, v)
-            if isinstance(v, basestring):
-                v = v.strip()
-                v = v or "-"
-            if oldvalues.has_key(k):
-                changed = oldvalues[k] != v
-                if changed: changetime[k] = time.time() + 2
+            v = str(v)
+            v = v.strip()
+            v = v or "-"
+            changed = oldvalues.get(k, None) != v
+            if changed: changetime[k] = time.time() + 2
             oldvalues[k] = v
-            vranges = t.tag_ranges(k)
-            if changetime.has_key(k) and changetime[k] >= time.time():
+            if changed:
                 vtag = "changedvalue"
-            else:
+            elif k in changetime and changetime[k] < now:
                 vtag = "value"
+                if k in changetime: del changetime[k]
+            elif not changed:
+                continue
+            vranges = t.tag_ranges(k)
             if vranges:
                 t.tk.call(t, "replace", "%s.first" % k, "%s.last" % k, v, (k, vtag))
             else:

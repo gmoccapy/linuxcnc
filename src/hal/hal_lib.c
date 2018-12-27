@@ -37,7 +37,7 @@
 
     You should have received a copy of the GNU Lesser General Public
     License along with this library; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111 USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
     THE AUTHORS OF THIS LIBRARY ACCEPT ABSOLUTELY NO LIABILITY FOR
     ANY HARM OR LOSS RESULTING FROM ITS USE.  IT IS _EXTREMELY_ UNWISE
@@ -285,7 +285,7 @@ int hal_init(const char *name)
 
 int hal_exit(int comp_id)
 {
-    int *prev, next;
+    rtapi_intptr_t *prev, next;
     hal_comp_t *comp;
     char name[HAL_NAME_LEN + 1];
 
@@ -605,7 +605,8 @@ int hal_pin_s32_newf(hal_pin_dir_t dir,
 int hal_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
     void **data_ptr_addr, int comp_id)
 {
-    int *prev, next, cmp;
+    rtapi_intptr_t *prev, next;
+    int cmp;
     hal_pin_t *new, *ptr;
     hal_comp_t *comp;
 
@@ -724,7 +725,8 @@ int hal_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
 
 int hal_pin_alias(const char *pin_name, const char *alias)
 {
-    int *prev, next, cmp;
+    rtapi_intptr_t *prev, next;
+    int cmp;
     hal_pin_t *pin, *ptr;
     hal_oldname_t *oldname;
 
@@ -852,7 +854,8 @@ int hal_pin_alias(const char *pin_name, const char *alias)
 int hal_signal_new(const char *name, hal_type_t type)
 {
 
-    int *prev, next, cmp;
+    rtapi_intptr_t *prev, next;
+    int cmp;
     hal_sig_t *new, *ptr;
     void *data_addr;
 
@@ -884,18 +887,22 @@ int hal_signal_new(const char *name, hal_type_t type)
 	return -EINVAL;
     }
     /* allocate memory for the signal value */
+/*
+because accesses will later be through pointer of type hal_data_u,
+allocate something that big.  Otherwise, gcc -fsanitize=undefined will
+issue diagnostics like
+    hal/hal_lib.c:3203:35: runtime error: member access within misaligned address 0x7fcf3d11f10b for type 'union hal_data_u', which requires 8 byte alignment
+on accesses through hal_data_u.
+
+This does increase memory usage somewhat, but is required for compliance
+with the C standard.
+*/
     switch (type) {
     case HAL_BIT:
-	data_addr = shmalloc_up(sizeof(hal_bit_t));
-	break;
     case HAL_S32:
-	data_addr = shmalloc_up(sizeof(hal_s32_t));
-	break;
     case HAL_U32:
-	data_addr = shmalloc_up(sizeof(hal_u32_t));
-	break;
     case HAL_FLOAT:
-	data_addr = shmalloc_up(sizeof(hal_float_t));
+        data_addr = shmalloc_up(sizeof(hal_data_u));
 	break;
     default:
 	rtapi_mutex_give(&(hal_data->mutex));
@@ -966,7 +973,7 @@ int hal_signal_new(const char *name, hal_type_t type)
 int hal_signal_delete(const char *name)
 {
     hal_sig_t *sig;
-    int *prev, next;
+    rtapi_intptr_t *prev, next;
 
     if (hal_data == 0) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
@@ -1102,7 +1109,10 @@ int hal_link(const char *pin_name, const char *sig_name)
     comp = SHMPTR(pin->owner_ptr);
     data_addr = comp->shmem_base + sig->data_ptr;
     *data_ptr_addr = data_addr;
-    if (( sig->readers == 0 ) && ( sig->writers == 0 ) && ( sig->bidirs == 0 )) {
+    bool drive_pin_default_value_onto_signal =
+        ( pin->dir != HAL_IN || sig->readers == 0 )
+            && ( sig->writers == 0 ) && ( sig->bidirs == 0 );
+    if (drive_pin_default_value_onto_signal) {
 	/* this is the first pin for this signal, copy value from pin's "dummy" field */
 	data_addr = hal_shmem_base + sig->data_ptr;
 
@@ -1284,7 +1294,8 @@ int hal_param_s32_newf(hal_param_dir_t dir, hal_s32_t * data_addr,
 int hal_param_new(const char *name, hal_type_t type, hal_param_dir_t dir, void *data_addr,
     int comp_id)
 {
-    int *prev, next, cmp;
+    rtapi_intptr_t *prev, next;
+    int cmp;
     hal_param_t *new, *ptr;
     hal_comp_t *comp;
 
@@ -1492,7 +1503,8 @@ int hal_param_set(const char *name, hal_type_t type, void *value_addr)
 
 int hal_param_alias(const char *param_name, const char *alias)
 {
-    int *prev, next, cmp;
+    rtapi_intptr_t *prev, next;
+    int cmp;
     hal_param_t *param, *ptr;
     hal_oldname_t *oldname;
 
@@ -1622,7 +1634,8 @@ int hal_param_alias(const char *param_name, const char *alias)
 int hal_export_funct(const char *name, void (*funct) (void *, long),
     void *arg, int uses_fp, int reentrant, int comp_id)
 {
-    int *prev, next, cmp;
+    rtapi_intptr_t *prev, next;
+    int cmp;
     hal_funct_t *new, *fptr;
     hal_comp_t *comp;
     char buf[HAL_NAME_LEN + 1];
@@ -1919,7 +1932,7 @@ int hal_create_thread(const char *name, unsigned long period_nsec, int uses_fp)
 extern int hal_thread_delete(const char *name)
 {
     hal_thread_t *thread;
-    int *prev, next;
+    rtapi_intptr_t *prev, next;
 
     if (hal_data == 0) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
@@ -3093,7 +3106,7 @@ static hal_thread_t *alloc_thread_struct(void)
 
 static void free_comp_struct(hal_comp_t * comp)
 {
-    int *prev, next;
+    rtapi_intptr_t *prev, next;
 #ifdef RTAPI
     hal_funct_t *funct;
 #endif /* RTAPI */
@@ -3364,7 +3377,7 @@ static void free_thread_struct(hal_thread_t * thread)
     hal_list_t *list_root, *list_entry;
 /*! \todo Another #if 0 */
 #if 0
-    int *prev, next;
+    rtapi_intptr_t *prev, next;
     char time[HAL_NAME_LEN + 1], tmax[HAL_NAME_LEN + 1];
     hal_param_t *param;
 #endif
@@ -3548,17 +3561,15 @@ int hal_stream_maxdepth(hal_stream_t *stream) {
 #ifdef ULAPI
 void hal_stream_wait_writable(hal_stream_t *stream, sig_atomic_t *stop) {
     while(!hal_stream_writable(stream) && (!stop || !*stop)) {
-        /* fifo full, sleep for 10mS */
-        struct timespec delay = { .tv_sec = 0, .tv_nsec = 10000000};
-        clock_nanosleep(CLOCK_MONOTONIC, 0, &delay, NULL);
+        /* fifo full, sleep for 10ms */
+        rtapi_delay(10000000);
     }
 }
 
 void hal_stream_wait_readable(hal_stream_t *stream, sig_atomic_t *stop) {
     while(!hal_stream_readable(stream) && (!stop || !*stop)) {
-        /* fifo full, sleep for 10mS */
-        struct timespec delay = { .tv_sec = 0, .tv_nsec = 10000000};
-        nanosleep(&delay, NULL);
+        /* fifo full, sleep for 10ms */
+        rtapi_delay(10000000);
     }
 }
 #endif
@@ -3778,6 +3789,7 @@ EXPORT_SYMBOL(hal_param_alias);
 EXPORT_SYMBOL_GPL(hal_stream_create);
 EXPORT_SYMBOL_GPL(hal_stream_destroy);
 EXPORT_SYMBOL_GPL(hal_stream_readable);
+EXPORT_SYMBOL_GPL(hal_stream_writable);
 EXPORT_SYMBOL_GPL(hal_stream_depth);
 EXPORT_SYMBOL_GPL(hal_stream_maxdepth);
 EXPORT_SYMBOL_GPL(hal_stream_write);

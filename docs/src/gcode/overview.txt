@@ -1,4 +1,4 @@
-[[cha:g-code-overview]](((G Code Overview)))
+[[cha:g-code-overview]]
 
 = G Code Overview
 
@@ -162,10 +162,10 @@ if the extra zeros were not there.
 Numbers used for specific purposes in RS274/NGC are often restricted
 to some finite set of values or some to some range of values. In many
 uses, decimal numbers must be close to integers; this includes the
-values of indexes (for parameters and carousel slot numbers, for
+values of indices (for parameters and carousel slot numbers, for
 example), M codes, and G codes multiplied by ten. A decimal number
-which is supposed be close to an integer is considered close enough if
-it is within 0.0001 of an integer.
+which is intended to represent an integer is considered close enough if
+it is within 0.0001 of an integer value.
 
 
 [[gcode:parameters]](((Parameters)))
@@ -200,9 +200,9 @@ global variables are visible. The local variables of a
 calling procedure are not visible in a called procedure.
 
 Behavior of uninitialized parameters::
-* Unitialized global parameters, and unused subroutine parameters
+* Uninitialized global parameters, and unused subroutine parameters
    return the value zero when used in an expression.
-* Unitialized named parameters signal an error when used in an expression.
+* Uninitialized named parameters signal an error when used in an expression.
 
 Mode:: Most parameters are read/write and may be assigned to
 within an assignment statement. However, for many predefined
@@ -274,11 +274,12 @@ example '##2'  means the value of the parameter whose index is the
 * '31-5000' - G code user parameters. These parameters are global in the G
   code file, and available for general use. Volatile.
 
-* '5061-5069' - Coordinates of a "G38.2" Probe result of
-  X, Y, Z, A, B, C, U, V & W. Volatile.
+* '5061-5069' - Coordinates of a <<gcode:g38,G38>> probe result (X, Y,
+  Z, A, B, C, U, V & W).  Coordinates are in the coordinate system in
+  which the G38 took place.  Volatile.
 
-* '5070' - "G38" probe result - 1 if success, 0 if probe failed to close.
-  Used with G38.3 and G38.5. Volatile.
+* '5070' - <<gcode:g38,G38>> probe result: 1 if success, 0 if probe
+  failed to close.  Used with G38.3 and G38.5. Volatile.
 
 * '5161-5169' - "G28" Home for X, Y, Z, A, B, C, U, V & W. Persistent.
 
@@ -348,7 +349,7 @@ example '##2'  means the value of the parameter whose index is the
    1: toolchanger faulted, 0: normal. Volatile.
 
 * '5601' - Toolchanger fault code. Used with the iocontrol-v2 component.
-   Reflects the value of the 'toolchanger-reason' HAL pin if a fault occured.
+   Reflects the value of the 'toolchanger-reason' HAL pin if a fault occurred.
    Volatile.
 
 .Numbered Parameters Persistence
@@ -443,7 +444,7 @@ for the first time. Local named parameters vanish when their scope is
 left: when a subroutine returns, all its local parameters are deleted
 and cannot be referred to anymore.
 
-It is an error to use a non-existent named paramater within an
+It is an error to use a non-existent named parameter within an
 expression, or at the right-hand side of an assignment. Printing the
 value of a non-existent named parameter with a DEBUG statement - like
 '(DEBUG, #<no_such_parameter>)' will display the string '######'.
@@ -554,15 +555,15 @@ can be added easily without changes to the source code.
 [width="20%",options="header"]
 |====
 |Mode | return value
-|G54| 0
-|G55| 1
-|G56| 2
-|G57| 3
-|G58| 4
-|G59| 5
-|G59.1|6
-|G59.2|7
-|G59.3|8
+|G54| 554
+|G55| 550
+|G56| 560
+|G57| 570
+|G58| 580
+|G59| 590
+|G59.1|591
+|G59.2|592
+|G59.3|593
 |====
 
 * '#<_tool_offset>' -
@@ -618,37 +619,37 @@ can be added easily without changes to the source code.
     Return 1 if feed hold switch is enabled (M53 P1), else 0.
 
 * '#<_feed>' -
-    Return the current feed value (F).
+    Return the current value of F, not the actual feed rate.
 
 * '#<_rpm>' -
-    Return the current spindle speed (S).
+    Return the current value of S, not the actual spindle speed.
 
 * '#<_x>' -
-    Return current X coordinate. Same as #5420.
+    Return current relative X coordinate including all offsets. Same as #5420.
 
 * '#<_y>' -
-    Return current Y coordinate. Same as #5421.
+    Return current relative Y coordinate including all offsets. Same as #5421.
 
 * '#<_z>' -
-    Return current Z coordinate. Same as #5422.
+    Return current relative Z coordinate including all offsets. Same as #5422.
 
 * '#<_a>' -
-    Return current A coordinate. Same as #5423.
+    Return current relative A coordinate including all offsets. Same as #5423.
 
 * '#<_b>' -
-    Return current B coordinate. Same as #5424.
+    Return current relative B coordinate including all offsets. Same as #5424.
 
 * '#<_c>' -
-    Return current C coordinate. Same as #5425.
+    Return current relative C coordinate including all offsets. Same as #5425.
 
 * '#<_u>' -
-    Return current U coordinate. Same as #5426.
+    Return current relative U coordinate including all offsets. Same as #5426.
 
 * '#<_v>' -
-    Return current V coordinate. Same as #5427.
+    Return current relative V coordinate including all offsets. Same as #5427.
 
 * '#<_w>' -
-    Return current W coordinate. Same as #5428.
+    Return current relative W coordinate including all offsets. Same as #5428.
 
 * '#<_current_tool>' -
     Return number of the current tool in spindle. Same as #5400.
@@ -676,7 +677,7 @@ can be added easily without changes to the source code.
     1.0 if the executing interpreter instance is part of milltask, 0.0
     otherwise. Sometimes it is necessary to treat this case specially
     to retain proper preview, for instance when testing the success of 
-    a probe (G38.x) by inspecting #5070, which will always fail in the
+    a probe (G38.n) by inspecting #5070, which will always fail in the
     preview interpreter (e.g. Axis).
 
 * '#<_call_level>' -
@@ -685,6 +686,11 @@ can be added easily without changes to the source code.
 * '#<_remap_level>' -
     current level of the remap stack. Each remap in a block adds one
     to the remap level. For debugging.
+
+[NOTE]
+Additional system parameters can be enabled by using 'FEATURES' in the
+[RS274NGC] section of the ini file. More information
+<<remap:ini-features, here>>.
 
 [[gcode:expressions]]
 
@@ -909,7 +915,7 @@ distance from the XY zero position increased with each line.
 
 .Polar Spiral
 
-image::images/polar01.png[align="center"]
+image::images/polar01.png[align="center", alt="Polar Spiral"]
 
 The following code will produce our square pattern.
 
@@ -927,7 +933,7 @@ end point distance is the same for each line.
 
 .Polar Square
 
-image::images/polar02.png[align="center"]
+image::images/polar02.png[align="center", alt="Polar Square"]
 
 It is an error if:
 
@@ -952,7 +958,7 @@ being in effect. The modal groups are shown in the following Table.
 |====
 |Modal Group Meaning                   | Member Words
 |Non-modal codes (Group 0)             | G4, G10 G28, G30, G52, G53, G92, G92.1, G92.2, G92.3, 
-.2+|Motion (Group 1)                   | G0, G1, G2, G3, G33, G38.x, G73, G76, G80, G81
+.2+|Motion (Group 1)                   | G0, G1, G2, G3, G33, G38.n, G73, G76, G80, G81
                                        | G82, G83, G84, G85, G86, G87, G88, G89
 |Plane selection (Group 2)             | G17, G18, G19, G17.1, G18.1, G19.1
 |Distance Mode (Group 3)               | G90, G91
@@ -972,13 +978,11 @@ being in effect. The modal groups are shown in the following Table.
 
 [width="80%", cols="4,6", options="header"]
 |====
-|Modal Group Meaning           | Member Words
-|Stopping (Group 4)            | M0, M1, M2, M30, M60
-|I/O on/off (Group 5)          | M6 Tn
-|Tool Change (Group 6)         | M6 Tn
-|Spindle (Group 7)             | M3, M4, M5
-|Coolant (Group 8)             | (M7 M8 can both be on), M9
-|Override Switches (Group 9)   | M48, M49
+|Modal Group Meaning           |Member Words
+|Stopping (Group 4)            |M0, M1, M2, M30, M60
+|Spindle (Group 7)             |M3, M4, M5
+|Coolant (Group 8)             |(M7 M8 can both be on), M9
+|Override Switches (Group 9)   |M48, M49
 |User Defined (Group 10)       |M100-M199
 |====
 
@@ -1032,6 +1036,9 @@ comment will in effect disable the active comment. For example, '(foo)
 
 A comment introduced by a semicolon is by definition the last comment
 on that line, and will always be interpreted for active comment syntax.
+
+NOTE: Inline comments on O words should not be used see the O Code
+<<ocode:comments, comments>> section for more information.
 
 [[gcode:messages]]
 == Messages
@@ -1179,7 +1186,7 @@ position of each item on the line, but by the following list:
 * Set retract mode (G98, G99).
 * Go to reference location (G28, G30) or change coordinate system 
   data (G10) or set axis offsets (G52, G92, G92.1, G92.2, G94). 
-* Perform motion (G0 to G3, G33, G38.x, G73, G76, G80 to G89), as modified
+* Perform motion (G0 to G3, G33, G38.n, G73, G76, G80 to G89), as modified
   (possibly) by G53. 
 * Stop (M0, M1, M2, M30, M60).
 
@@ -1265,15 +1272,4 @@ material removal rate.
   on the same line.
 * 'File ended with no percent sign or program end' - Every G code file must
   end in a M2 or M30 or be wrapped with the percent sign %.
-
-
-
-
-
-
-
-
-
-
-
 

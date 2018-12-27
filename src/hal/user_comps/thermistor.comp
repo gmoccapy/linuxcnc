@@ -14,7 +14,7 @@
 //
 //   You should have received a copy of the GNU General Public License
 //   along with this program; if not, write to the Free Software
-//   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
+//   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 //
 
 component thermistor "compute temperature indicated by a thermistor";
@@ -78,10 +78,46 @@ void user_mainloop(void) {
     while (!should_exit) {
         FOR_ALL_INSTS() {
             hal_float_t t0_k = t0_c + 273.15;
-            hal_float_t r_inf = r0 * exp(-beta/t0_k);
-            hal_float_t current = (v_total - v_thermistor) / r_other;
+            hal_float_t r_inf;
+            hal_float_t current;
+
+            if (t0_k <= 0.0) {
+                goto problem;
+            }
+
+            if (r_other <= 0.0) {
+                goto problem;
+            }
+
+            r_inf = r0 * exp(-beta/t0_k);
+            if (r_inf <= 0.0) {
+                goto problem;
+            }
+
+            current = (v_total - v_thermistor) / r_other;
+            if (current <= 0.0) {
+                goto problem;
+            }
+
             resistance = v_thermistor / current;
+            if (isnan(resistance) || isinf(resistance) || (resistance <= 0.0)) {
+                goto problem;
+            }
+
             temperature_k = beta / log(resistance/r_inf);
+            if (isnan(temperature_k) || isinf(temperature_k) || (temperature_k < 0.0)) {
+                goto problem;
+            }
+
+            // no problems found
+            goto ok;
+
+problem:
+            // override problematic output pins with bogus but not invalid values
+            resistance = 0;
+            temperature_k = 9999;
+
+ok:
             temperature_c = temperature_k - 273.15;
             temperature_f = (temperature_c * 9.0 / 5.0) + 32.0;
         }

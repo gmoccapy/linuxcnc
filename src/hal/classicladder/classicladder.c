@@ -18,13 +18,17 @@
 
 /* You should have received a copy of the GNU Lesser General Public */
 /* License along with this library; if not, write to the Free Software */
-/* Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
+/* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA. */
 
 // This is an adaption of classicladder V7.124 For EMC
 // most of this file is very different from the original
 // it uses RTAPI realtime code and HAL code for memory allocation and input/output.
 // this adaptation was started Jan 2008 by Chris Morley  
 
+#include "../config.h"
+#include <locale.h>
+#include <libintl.h>
+#define _(x) gettext(x)
 #ifdef MODULE
 #include <linux/string.h>
 #else
@@ -108,9 +112,9 @@ void display_help (void)
 	       "eg: loadusr -w classicladder  --modmaster ladtest.clp\n"
 	       "\n"
 	       "   --nogui            do not create a GUI, only load a configuration\n"
-	       "   --config=filename  initilize modbus master I/O & load config file-( deprecated- use --modmaster)\n" 
-	       "   --modmaster        initilize modbus master I/O ( modbus config is loaded with other objects )\n" 
-	       "   --modslave         initilize modbus slave I/O (TCP only- B and W variables accesable\n"
+	       "   --config=filename  initialize modbus master I/O & load config file-( deprecated- use --modmaster)\n"
+	       "   --modmaster        initialize modbus master I/O ( modbus config is loaded with other objects )\n"
+	       "   --modslave         initialize modbus slave I/O (TCP only- B and W variables accesable\n"
 	       "   --modbus_port=portnumber  used for modbus slave using TCP ( ethernet )\n"
 	       "   --debug            sets the RTAPI debuglevel for printing debug messages\n"
 	       "Please also note that the classicladder realtime module must be loaded first\n"
@@ -186,7 +190,7 @@ void process_options (int argc, char *argv[])
 //for EMC: do_exit
 static void do_exit(int unused) {
 		hal_exit(compId);
-		printf("ERROR CLASSICLADDER-   Error intializing classicladder user module.\n");
+		printf(_("ERROR CLASSICLADDER-   Error initializing classicladder user module.\n"));
 		exit(0);
 }
 void DoPauseMilliSecs( int Time )
@@ -222,16 +226,20 @@ void RunBackIfStopped( void )
 		InfosGene->LadderStoppedToRunBack = FALSE;
 	}
 }
-// after processing options and intiallising HAL, MODBUS and registering shared memory
+// after processing options and initializing HAL, MODBUS and registering shared memory
 // the main function is divided into  NOGUI true or NOGUI FALSE
 // The difference between them is mostly about checking if a program has already been loaded (only when GUI is to be shown)
 // if rungs are used and a ladder program was not specified on the command line
-// then a program is already in memory so we dont re initallize memory we just start the GUI
+// then a program is already in memory so we dont re initialize memory we just start the GUI
 
 int main( int   argc, char *argv[] )
 {
 	int used=0, NumRung;
 	static int old_level ;
+         bindtextdomain("linuxcnc", EMC2_PO_DIR);
+         setlocale(LC_MESSAGES,"");
+         setlocale(LC_CTYPE,"");
+         textdomain("linuxcnc");
 	old_level = rtapi_get_msg_level();
 	compId=hal_init("classicladder"); //emc
 	if (compId<0) return -1; //emc
@@ -243,7 +251,7 @@ int main( int   argc, char *argv[] )
 		process_options (argc, argv);
 		if (nogui==TRUE)
 		{
-			rtapi_print("INFO CLASSICLADDER-   No ladder GUI requested-Realtime runs till HAL closes.\n");
+			rtapi_print(_("INFO CLASSICLADDER-   No ladder GUI requested-Realtime runs till HAL closes.\n"));
 			ClassicLadder_InitAllDatas( );
 			ProjectLoadedOk = LoadProjectFiles( InfosGene->CurrentProjectFileName  );
 			if (pathswitch){   strcpy( InfosGene->CurrentProjectFileName, NewPath );   }
@@ -263,7 +271,7 @@ int main( int   argc, char *argv[] )
 						UpdateAllGtkWindows();
 						if (pathswitch){   strcpy( InfosGene->CurrentProjectFileName, NewPath );   }
 						UpdateWindowTitleWithProjectName( );
-						MessageInStatusBar( ProjectLoadedOk?"Project loaded and running":"Project failed to load...");
+						MessageInStatusBar( ProjectLoadedOk?_("Project loaded and running"):_("Project failed to load..."));
 						if (!ProjectLoadedOk) 
 						{  
 							   ClassicLadder_InitAllDatas( );   
@@ -274,7 +282,7 @@ int main( int   argc, char *argv[] )
 							   UpdateAllGtkWindows();
 							   if (pathswitch){   strcpy( InfosGene->CurrentProjectFileName, NewPath );   }
 							   UpdateWindowTitleWithProjectName( );
-							   MessageInStatusBar("GUI reloaded with existing ladder program");
+							   MessageInStatusBar(_("GUI reloaded with existing ladder program"));
 							   if (modmaster) {    PrepareModbusMaster( );    }
 							} 
 							
@@ -282,13 +290,13 @@ int main( int   argc, char *argv[] )
 				InfosGene->LadderState = STATE_RUN;
 				hal_ready(compId);
 				gtk_main();
-				rtapi_print("INFO CLASSICLADDER-   Ladder GUI closed. Realtime runs till HAL closes\n");
+				rtapi_print(_("INFO CLASSICLADDER-   Ladder GUI closed. Realtime runs till HAL closes\n"));
 				ClassicLadder_FreeAll(TRUE);
 				hal_exit(compId);
 				return 0;
 			}		
 	}
-	 rtapi_print("ERROR CLASSICLADDER-   Ladder memory allocation error\n");
+	 rtapi_print(_("ERROR CLASSICLADDER-   Ladder memory allocation error\n"));
 	ClassicLadder_FreeAll(TRUE);
 	rtapi_set_msg_level(old_level);
 	hal_exit(compId);		

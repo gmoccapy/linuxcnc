@@ -26,7 +26,7 @@
 
     You should have received a copy of the GNU General Public
     License along with this library; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111 USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
     THE AUTHORS OF THIS LIBRARY ACCEPT ABSOLUTELY NO LIABILITY FOR
     ANY HARM OR LOSS RESULTING FROM ITS USE.  IT IS _EXTREMELY_ UNWISE
@@ -103,7 +103,7 @@ GtkWidget *gtk_hbox_framed_new_in_box(const gchar * name, gboolean homogeneous,
 void gtk_label_set_text_if(GtkWidget * label, const gchar * text);
 
 /** gtk_label_size_to_fit() sets the size of the label to fit the
-    the string "str".  It is usefull when you want the size of a
+    the string "str".  It is useful when you want the size of a
     label to remain constant, even if it's contents change.
 */
 void gtk_label_size_to_fit(GtkLabel * label, const gchar * str);
@@ -130,7 +130,7 @@ int dialog_generic_msg(GtkWidget * parent, const gchar * title, const gchar * ms
     const gchar * button1, const gchar * button2, const gchar * button3, const gchar * button4);
 
 /** the following functions are used by the generic dialog functions,
-    but may also be usefull for custom dialogs, so they are made public
+    but may also be useful for custom dialogs, so they are made public
     here.
 */
 void dialog_generic_button1(GtkWidget * widget, dialog_generic_t * dptr);

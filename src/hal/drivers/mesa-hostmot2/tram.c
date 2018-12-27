@@ -112,7 +112,7 @@ int hm2_allocate_tram_regions(hostmot2_t *hm2) {
         return -ENOMEM;
     }
     if(hm2->tram_read_size>old_tram_read_size)
-        memset(hm2->tram_read_buffer+old_tram_read_size, 0, hm2->tram_read_size-old_tram_read_size);
+        memset((char*)hm2->tram_read_buffer+old_tram_read_size, 0, hm2->tram_read_size-old_tram_read_size);
     
     hm2->tram_write_buffer = (rtapi_u32 *)rtapi_krealloc(hm2->tram_write_buffer, hm2->tram_write_size, RTAPI_GFP_KERNEL);
     if (hm2->tram_write_buffer == NULL) {
@@ -120,7 +120,7 @@ int hm2_allocate_tram_regions(hostmot2_t *hm2) {
         return -ENOMEM;
     }
     if(hm2->tram_write_size>old_tram_write_size)
-        memset(hm2->tram_write_buffer+old_tram_write_size, 0, hm2->tram_write_size-old_tram_write_size);
+        memset((char*)hm2->tram_write_buffer+old_tram_write_size, 0, hm2->tram_write_size-old_tram_write_size);
 
     HM2_DBG("buffer address %p\n", &hm2->tram_write_buffer);
     HM2_DBG("Translation RAM read buffer:\n");
@@ -174,8 +174,10 @@ int hm2_queue_read(hostmot2_t *hm2) {
 
 int hm2_finish_read(hostmot2_t *hm2) {
     if (!hm2->llio->receive_queued_reads) return 0;
-    if (!hm2->llio->receive_queued_reads(hm2->llio)) {
-        HM2_ERR("error finishing read! iter=%u)\n",
+    int r = hm2->llio->receive_queued_reads(hm2->llio);
+    if (r < 0) return r;
+    if (!r) {
+        HM2_ERR("error finishing read! iter=%u\n",
             tram_read_iteration);
         return -EIO;
     }

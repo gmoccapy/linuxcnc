@@ -49,7 +49,7 @@
 
   You should have received a copy of the GNU Lesser General Public
   License along with this library; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111 USA
+  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
 /** THE AUTHORS OF THIS LIBRARY ACCEPT ABSOLUTELY NO LIABILITY FOR
@@ -69,7 +69,7 @@
 /* Internal function for the proc_fs system. */
 
 /* The proc file system is available in 2.2 and 2.4 kernels with 
-  minor differences - The 2.4 kernels have a usefull helper function
+  minor differences - The 2.4 kernels have a useful helper function
   for creating the proc_fs entries.
   It is unlikely that the following implimentaion will work on a 2.0
   series kernel..

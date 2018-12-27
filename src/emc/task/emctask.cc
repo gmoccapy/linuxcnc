@@ -33,7 +33,7 @@
 #include "task.hh"		// emcTaskCommand etc
 #include "python_plugin.hh"
 #include "taskclass.hh"
-
+#include "motion.h"
 
 #define USER_DEFINED_FUNCTION_MAX_DIRS 5
 #define MAX_M_DIRS (USER_DEFINED_FUNCTION_MAX_DIRS+1)
@@ -178,10 +178,8 @@ int emcTaskAbort()
     emcMotionAbort();
 
     // clear out the pending command
-    if (!drain_interp_list) {
-        emcTaskCommand = 0;
-        interp_list.clear();
-    }
+    emcTaskCommand = 0;
+    interp_list.clear();
 
     // clear out the interpreter state
     emcStatus->task.interpState = EMC_TASK_INTERP_IDLE;
@@ -195,9 +193,19 @@ int emcTaskAbort()
     stepping = 0;
     steppingWait = 0;
 
+#ifdef STOP_ON_SYNCH_IF_EXTERNAL_OFFSETS
+    if (GET_EXTERNAL_OFFSET_APPLIED()) {
+        emcStatus->task.execState = EMC_TASK_EXEC_DONE;
+    } else {
+        // now queue up command to resynch interpreter
+        EMC_TASK_PLAN_SYNCH taskPlanSynchCmd;
+        emcTaskQueueCommand(&taskPlanSynchCmd);
+    }
+#else
     // now queue up command to resynch interpreter
     EMC_TASK_PLAN_SYNCH taskPlanSynchCmd;
     emcTaskQueueCommand(&taskPlanSynchCmd);
+#endif
 
     // without emcTaskPlanClose(), a new run command resumes at
     // aborted line-- feature that may be considered later
@@ -220,7 +228,11 @@ int emcTaskSetMode(int mode)
     switch (mode) {
     case EMC_TASK_MODE_MANUAL:
 	// go to manual mode
-	emcTrajSetMode(EMC_TRAJ_MODE_FREE);
+        if (all_homed()) {
+            emcTrajSetMode(EMC_TRAJ_MODE_TELEOP);
+        } else {
+            emcTrajSetMode(EMC_TRAJ_MODE_FREE);
+        }
 	mdiOrAuto = EMC_TASK_MODE_AUTO;	// we'll default back to here
 	break;
 
@@ -257,16 +269,15 @@ int emcTaskSetState(int state)
     case EMC_TASK_STATE_OFF:
         emcMotionAbort();
 	// turn the machine servos off-- go into READY state
-        emcSpindleAbort();
-	for (t = 0; t < emcStatus->motion.traj.axes; t++) {
-	    emcAxisDisable(t);
+    for (t = 0; t < emcStatus->motion.traj.spindles; t++)  emcSpindleAbort(t);
+	for (t = 0; t < emcStatus->motion.traj.joints; t++) {
+	    emcJointDisable(t);
 	}
 	emcTrajDisable();
 	emcIoAbort(EMC_ABORT_TASK_STATE_OFF);
 	emcLubeOff();
 	emcTaskAbort();
-        emcSpindleAbort();
-        emcAxisUnhome(-2); // only those joints which are volatile_home
+    emcJointUnhome(-2); // only those joints which are volatile_home
 	emcAbortCleanup(EMC_ABORT_TASK_STATE_OFF);
 	emcTaskPlanSynch();
 	break;
@@ -274,8 +285,8 @@ int emcTaskSetState(int state)
     case EMC_TASK_STATE_ON:
 	// turn the machine servos on
 	emcTrajEnable();
-	for (t = 0; t < emcStatus->motion.traj.axes; t++) {
-	    emcAxisEnable(t);
+	for (t = 0; t < emcStatus->motion.traj.joints; t++){
+		emcJointEnable(t);
 	}
 	emcLubeOn();
 	break;
@@ -286,24 +297,25 @@ int emcTaskSetState(int state)
 	emcLubeOff();
 	emcTaskAbort();
         emcIoAbort(EMC_ABORT_TASK_STATE_ESTOP_RESET);
-        emcSpindleAbort();
+    for (t = 0; t < emcStatus->motion.traj.spindles; t++) emcSpindleAbort(t);
 	emcAbortCleanup(EMC_ABORT_TASK_STATE_ESTOP_RESET);
 	emcTaskPlanSynch();
 	break;
 
     case EMC_TASK_STATE_ESTOP:
         emcMotionAbort();
-        emcSpindleAbort();
+	for (t = 0; t < emcStatus->motion.traj.spindles; t++) emcSpindleAbort(t);
 	// go into estop-- do both IO estop and machine servos off
 	emcAuxEstopOn();
-	for (t = 0; t < emcStatus->motion.traj.axes; t++) {
-	    emcAxisDisable(t);
+	for (t = 0; t < emcStatus->motion.traj.joints; t++) {
+	    emcJointDisable(t);
 	}
 	emcTrajDisable();
 	emcLubeOff();
 	emcTaskAbort();
         emcIoAbort(EMC_ABORT_TASK_STATE_ESTOP);
-        emcAxisUnhome(-2); // only those joints which are volatile_home
+	for (t = 0; t < emcStatus->motion.traj.spindles; t++) emcSpindleAbort(t);
+        emcJointUnhome(-2); // only those joints which are volatile_home
 	emcAbortCleanup(EMC_ABORT_TASK_STATE_ESTOP);
 	emcTaskPlanSynch();
 	break;
@@ -325,20 +337,22 @@ int emcTaskSetState(int state)
 
   Depends on traj mode, and mdiOrAuto flag
 
-  traj mode   mdiOrAuto     mode
-  ---------   ---------     ----
+  traj mode   mdiOrAuto     task mode
+  ---------   ---------     ---------
   FREE        XXX           MANUAL
+  TELEOP      XXX           MANUAL
   COORD       MDI           MDI
   COORD       AUTO          AUTO
   */
 static int determineMode()
 {
-    // if traj is in free mode, then we're in manual mode
-    if (emcStatus->motion.traj.mode == EMC_TRAJ_MODE_FREE ||
-	emcStatus->motion.traj.mode == EMC_TRAJ_MODE_TELEOP) {
-	return EMC_TASK_MODE_MANUAL;
+    if (emcStatus->motion.traj.mode == EMC_TRAJ_MODE_FREE) {
+        return EMC_TASK_MODE_MANUAL;
     }
-    // else traj is in coord mode-- we can be in either mdi or auto
+    if (emcStatus->motion.traj.mode == EMC_TRAJ_MODE_TELEOP) {
+        return EMC_TASK_MODE_MANUAL;
+    }
+    // for EMC_TRAJ_MODE_COORD
     return mdiOrAuto;
 }
 
@@ -430,6 +444,8 @@ int emcTaskPlanInit()
     waitFlag = 0;
 
     int retval = interp.init();
+    // In task, enable M99 main program endless looping
+    interp.set_loop_on_main_m99(true);
     if (retval > INTERP_MIN_ERROR) {  // I'd think this should be fatal.
 	print_interp_error(retval);
     } else {
@@ -443,10 +459,6 @@ int emcTaskPlanInit()
 	    }
 	}
     }
-
-    // Let the Interp init and .ini startup code finish before talking
-    // with the user interfaces.
-    drain_interp_list = 1;
 
     if (emc_debug & EMC_DEBUG_INTERP) {
         rcs_print("emcTaskPlanInit() returned %d\n", retval);
@@ -494,9 +506,13 @@ int emcTaskPlanSetBlockDelete(bool state)
     return 0;
 }
 
+
 int emcTaskPlanSynch()
 {
     int retval = interp.synch();
+    if (retval == INTERP_ERROR) {
+        emcTaskAbort();
+    }
 
     if (emc_debug & EMC_DEBUG_INTERP) {
         rcs_print("emcTaskPlanSynch() returned %d\n", retval);
@@ -665,7 +681,7 @@ int emcTaskUpdate(EMC_TASK_STAT * stat)
 
     if(oldstate == EMC_TASK_STATE_ON && oldstate != stat->state) {
 	emcTaskAbort();
-        emcSpindleAbort();
+    for (int s = 0; s < emcStatus->motion.traj.spindles; s++) emcSpindleAbort(s);
         emcIoAbort(EMC_ABORT_TASK_STATE_NOT_ON);
 	emcAbortCleanup(EMC_ABORT_TASK_STATE_NOT_ON);
     }
@@ -701,7 +717,6 @@ int emcTaskUpdate(EMC_TASK_STAT * stat)
 int emcAbortCleanup(int reason, const char *message)
 {
     int status = interp.on_abort(reason,message);
-    drain_interp_list = 1;
     if (status > INTERP_MIN_ERROR)
 	print_interp_error(status);
     return status;

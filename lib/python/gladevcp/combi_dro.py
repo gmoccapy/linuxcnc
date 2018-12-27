@@ -24,6 +24,7 @@ import sys
 import pango
 import math
 import linuxcnc
+from hal_glib import GStat
 
 # constants
 _INCH = 0
@@ -81,6 +82,8 @@ class Combi_DRO(gtk.VBox):
                     8, 96, 25, gobject.PARAM_READWRITE | gobject.PARAM_CONSTRUCT),
         'toggle_readout' : (gobject.TYPE_BOOLEAN, 'Enable toggling readout with click', 'The DRO will toggle between Absolut , Relativ and DTG with each mouse click.',
                     True, gobject.PARAM_READWRITE | gobject.PARAM_CONSTRUCT),
+        'cycle_time' : (gobject.TYPE_INT, 'Cycle Time', 'Time, in milliseconds, that display will sleep between polls',
+                    100, 1000, 150, gobject.PARAM_READWRITE | gobject.PARAM_CONSTRUCT),
     }
     __gproperties = __gproperties__
 
@@ -95,10 +98,11 @@ class Combi_DRO(gtk.VBox):
     def __init__(self, joint_number = 0):
         super(Combi_DRO, self).__init__()
 
-        # get the necesarry connextions to linuxcnc
-        self.joint_number = joint_number
+        # get the necessary connections to linuxcnc
+        self.joint_number = self.joint = joint_number
         self.linuxcnc = linuxcnc
         self.status = linuxcnc.stat()
+        self.gstat = GStat()
 
         # set some default values'
         self._ORDER = ["Rel", "Abs", "DTG"]
@@ -117,6 +121,7 @@ class Combi_DRO(gtk.VBox):
         self.unit_convert = 1
         self._auto_units = True
         self.toggle_readout = True
+        self.cycle_time = 150
 
         # Make the GUI and connect signals
         self.eventbox = gtk.EventBox()
@@ -165,8 +170,9 @@ class Combi_DRO(gtk.VBox):
 
         self.show_all()
 
-        # add the timer at a period of 100 ms
-        gobject.timeout_add(100, self._periodic)
+        self.gstat.connect('not-all-homed', self._not_all_homed )
+        self.gstat.connect('all-homed', self._all_homed )
+        self.gstat.connect('homed', self._homed )
 
         # This try is only needed because while working with glade
         # linuxcnc may not be working
@@ -185,6 +191,9 @@ class Combi_DRO(gtk.VBox):
             self.machine_units = _MM
         else:
             self.machine_units = _INCH
+
+        # add the timer at a period of 100 ms
+        gobject.timeout_add(self.cycle_time, self._periodic)
 
     # make an pango attribute to be used with several labels
     def _set_attributes(self, bgcolor, fgcolor, size, weight):
@@ -245,13 +254,15 @@ class Combi_DRO(gtk.VBox):
                     self._auto_units = value
                     self._set_labels()
                 if name == "joint_number":
-                    self.joint_number = value
+                    self.joint_number = self.joint = value
                     self.change_axisletter(_AXISLETTERS[self.joint_number])
                 if name == "font_size":
                     self.font_size = value
                     self._set_labels()
                 if name == "toggle_readout":
                     self.toggle_readout = value
+                if name == "cycle_time":
+                    self.cycle_time = value
                 if name in ('metric_units', 'actual', 'diameter'):
                     setattr(self, name, value)
                     self.queue_draw()
@@ -329,15 +340,24 @@ class Combi_DRO(gtk.VBox):
 
     # periodic call to update the positions, every 100 ms
     def _periodic(self):
+        # we do not want to throw errors if linuxcnc has been killed
+        # from external command
         try:
             self.status.poll()
+        except:
+            pass
+
+        if self.status.kinematics_type != linuxcnc.KINEMATICS_IDENTITY and not self.homed:
+            self.main_dro.set_text("----.---")
+            self.dro_left.set_text("----.---")
+            self.dro_right.set_text("----.---")
+            return True
+
+        try:
             main, left, right = self._position()
             if self.system != self._get_current_system():
                 self._set_labels()
                 self.emit("system_changed", self._get_current_system())
-            if self.homed != self.status.homed[self.joint_number]:
-                self.homed = self.status.homed[self.joint_number]
-                self._set_labels()
             if (self._get_current_units() == 20 and self.metric_units) or (self._get_current_units() == 21 and not self.metric_units):
                 if self._auto_units:
                     self.metric_units = not self.metric_units
@@ -407,6 +427,29 @@ class Combi_DRO(gtk.VBox):
         if self._ORDER == ["Abs", "DTG", "Rel"]:
             return abs_pos, dtg, rel_pos
 
+    def _not_all_homed(self, widget, data = None):
+        if self.status.kinematics_type == linuxcnc.KINEMATICS_IDENTITY:
+            self.status.poll()
+            self.homed = self.status.homed[self.joint]
+        else:
+            self.homed = False
+        self._set_labels()
+
+    def _all_homed(self, widget, data = None):
+        if self.status.kinematics_type == linuxcnc.KINEMATICS_IDENTITY:
+            return
+        if not self.homed:
+            self.homed = True
+            self._set_labels()
+
+    def _homed(self, widget, data = None):
+        if self.status.kinematics_type != linuxcnc.KINEMATICS_IDENTITY:
+            return
+        else:
+            self.status.poll()
+            self.homed = self.status.homed[self.joint]
+            self._set_labels()
+
     # sets the DRO explicity to inch or mm
     # attentions auto_units takes also effekt on that!
     def set_to_inch(self, state):
@@ -466,15 +509,25 @@ class Combi_DRO(gtk.VBox):
     # i.e. to use an axis as R or D insteadt of X on a lathe
     def change_axisletter(self, letter):
         '''
-        changes the automaticaly given axisletter
-        very usefull to change an lathe DRO from X to R or D
+        changes the automatically given axis-letter
+        very useful to change an lathe DRO from X to R or D
 
-        Combi_DRO.change_axisletter(letter)
+        Combi_DRO.change_axis-letter(letter)
 
         letter = string
 
         '''
         self.lbl_axisletter.set_text(letter)
+
+    def set_joint(self, joint):
+        '''
+        changes the joint, not the joint number. This is handy for special
+        cases, like Gantry configs, i.e. XYYZ, where joint 0 = X, joint 1 = Y1
+        joint 2 = Y2 and joint 3 = Z, so the Z axis can be set to joint_number 2
+        giving the axis letter Z and joint 3 being in this case the corresponding
+        joint, joint 3 instead of 2
+        '''
+        self.joint = joint
 
     # returns the order of the DRO, mainly used to mantain them consistent
     # the order will also be transmitted with the clicked signal
@@ -570,7 +623,7 @@ def clicked(self, axis_number, order):
     axis_number = the joint number of the widget
     order = the actual order of the DRO in the widget
     '''
-    print("Klick recieved from ", axis_number)
+    print("Click received from ", axis_number)
     print("Order = ", order)
     print(self.get_position())
 #    self.set_property("joint_number", 0)

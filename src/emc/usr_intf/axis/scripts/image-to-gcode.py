@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 ## image-to-gcode is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by the
@@ -8,8 +8,8 @@
 ## warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
 ## the GNU General Public License for more details.  You should have
 ## received a copy of the GNU General Public License along with image-to-gcode;
-## if not, write to the Free Software Foundation, Inc., 59 Temple Place,
-## Suite 330, Boston, MA 02111-1307 USA
+## if not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+## Fifth Floor, Boston, MA 02110-1301 USA.
 ## 
 ## image-to-gcode.py is Copyright (C) 2005 Chris Radek
 ## chris@timeguy.com
@@ -23,17 +23,13 @@ sys.path.insert(0, os.path.join(BASE, "lib", "python"))
 import gettext;
 gettext.install("linuxcnc", localedir=os.path.join(BASE, "share", "locale"), unicode=True)
 
-import Image
-
 try:
-    import numpy.numarray as numarray
-    import numpy.core
-    olderr = numpy.core.seterr(divide='ignore')
-    plus_inf = (numarray.array((1.,))/0.)[0]
-    numpy.core.seterr(**olderr)
-except ImportError:
-    import numarray, numarray.ieeespecial
-    plus_inf = numarray.ieeespecial.inf
+    from PIL import Image
+except:
+    import Image
+
+import numpy.core
+plus_inf = numpy.core.Inf
 
 from rs274.author import Gcode
 import rs274.options
@@ -42,6 +38,10 @@ from math import *
 import operator
 
 epsilon = 1e-5
+
+def tobytes(img):
+    if hasattr(img, 'tobytes'): return img.tobytes()
+    return img.tostring()
 
 def ball_tool(r,rad):
     s = -sqrt(rad**2-r**2)
@@ -63,7 +63,7 @@ def make_tool_shape(f, wdia, resp):
     dia = int(wdia*res+.5)
     wrad = wdia/2.
     if dia < 2: dia = 2
-    n = numarray.array([[plus_inf] * dia] * dia, type="Float32")
+    n = numpy.array([[plus_inf] * dia] * dia, dtype=numpy.float32)
     hdia = dia / 2.
     l = []
     for x in range(dia):
@@ -275,9 +275,9 @@ class Converter:
             tw, th = rough.shape
             w1 = w + tw
             h1 = h + th
-            nim1 = numarray.zeros((w1, h1), 'Float32') + base_image.min()
+            nim1 = numpy.zeros((w1, h1), dtype=numpy.float32) + base_image.min()
             nim1[tw/2:tw/2+w, th/2:th/2+h] = base_image
-            self.image = numarray.zeros((w,h), type="Float32")
+            self.image = numpy.zeros((w,h), dtype=numpy.float32)
             for j in range(0, w):
                 progress(j,w)
                 for i in range(0, h):
@@ -760,7 +760,7 @@ def main():
     im = im.convert("L") #grayscale
     w, h = im.size
 
-    nim = numarray.fromstring(im.tostring(), 'UInt8', (h, w)).astype('Float32')
+    nim = numpy.fromstring(tobytes(im), dtype=numpy.uint8).reshape((h, w)).astype(numpy.float32)
     options = ui(im, nim, im_name)
 
     step = options['pixelstep']
@@ -786,7 +786,7 @@ def main():
         tw, th = tool.shape
         w1 = w + 2*tw
         h1 = h + 2*th
-        nim1 = numarray.zeros((w1, h1), 'Float32') + pixel
+        nim1 = numpy.zeros((w1, h1), dtype=numpy.float32) + pixel
         nim1[tw:tw+w, th:th+h] = nim
         nim = nim1
         w, h = w1, h1

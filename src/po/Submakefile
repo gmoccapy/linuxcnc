@@ -44,7 +44,6 @@ TCLSRCS := \
 	../tcl/bin/halshow.tcl \
 	../tcl/bin/pickconfig.tcl \
 	../tcl/bin/tkbackplot.tcl \
-	../tcl/mini.tcl \
 	../tcl/show_errors.tcl \
 	../tcl/tklinuxcnc.tcl \
 	../tcl/scripts/Set_Coordinates.tcl \
@@ -75,9 +74,66 @@ po/linuxcnc.pot: hal/utils/meter.c \
     hal/utils/miscgtk.c
 po/linuxcnc.pot: emc/motion/control.c emc/motion/command.c emc/motion/motion.c emc/motion/homing.c
 
+  po/linuxcnc.pot: hal/classicladder/arithm_eval.c \
+    hal/classicladder/arithm_eval.c \
+    hal/classicladder/arrays.c \
+    hal/classicladder/calc.c \
+    hal/classicladder/calc_sequential.c \
+    hal/classicladder/classicladder.c \
+    hal/classicladder/classicladder_gtk.c \
+    hal/classicladder/config.c \
+    hal/classicladder/config_gtk.c \
+    hal/classicladder/drawing.c \
+    hal/classicladder/drawing_sequential.c \
+    hal/classicladder/edit.c \
+    hal/classicladder/edit_gtk.c \
+    hal/classicladder/edit_sequential.c \
+    hal/classicladder/editproperties_gtk.c \
+    hal/classicladder/emc_mods.c \
+    hal/classicladder/files.c \
+    hal/classicladder/files_project.c \
+    hal/classicladder/files_sequential.c \
+    hal/classicladder/manager.c \
+    hal/classicladder/manager_gtk.c \
+    hal/classicladder/protocol_modbus_master.c \
+    hal/classicladder/protocol_modbus_slave.c \
+    hal/classicladder/serial_linux.c \
+    hal/classicladder/socket_modbus_master.c \
+    hal/classicladder/socket_server.c \
+    hal/classicladder/spy_vars_gtk.c \
+    hal/classicladder/symbols.c \
+    hal/classicladder/symbols_gtk.c \
+    hal/classicladder/vars_names.c \
+    hal/classicladder/vars_access.c \
+
 po/linuxcnc.pot: $(TCLSRCS)
 po/linuxcnc.pot: $(PYI18NSRCS)
 
 .PHONY: install-locale
 install-locale: $(addprefix $(DESTDIR)$(localedir)/, $(MO_FILES))
 install-kernel-indep: install-locale
+
+INTLTOOL_GLADE := \
+	emc/usr_intf/gmoccapy/gmoccapy.glade.h \
+	../lib/python/gladevcp/offsetpage.glade.h \
+	../lib/python/gladevcp/tooledit_gtk.glade.h
+
+$(INTLTOOL_GLADE): %.glade.h: %.glade
+	intltool-extract --type=gettext/glade $<
+GMOCCAPY_I18N_SRCS := \
+	$(patsubst %,emc/usr_intf/gmoccapy/%, \
+		gmoccapy.py dialogs.py getiniinfo.py notification.py player.py \
+		preferences.py widgets.py gmoccapy.glade.h) \
+	$(patsubst %,../lib/python/gladevcp/%, \
+		iconview.py offsetpage_widget.py tooledit_widget.py \
+		offsetpage.glade.h tooledit_gtk.glade.h)
+
+po/gmoccapy/gmoccapy.pot: $(GMOCCAPY_I18N_SRCS)
+	$(XGETTEXT) --from-code=UTF-8 --language=Python \
+		--keyword=_ --keyword=N_ \
+		--output=$@ $^
+TARGETS += po/gmoccapy/gmoccapy.pot
+
+clean: gmoccapy_i18n_clean
+gmoccapy_i18n_clean:
+	@rm -f $(INTLTOOL_GLADE)

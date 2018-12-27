@@ -14,8 +14,9 @@
  *
  *    You should have received a copy of the GNU General Public License
  *    along with this program; if not, write to the Free Software
- *    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
+#define BOOST_PYTHON_MAX_ARITY 13
 #include <boost/python/def.hpp>
 #include <boost/python/module.hpp>
 #include <boost/python/scope.hpp>
@@ -242,4 +243,7 @@ BOOST_PYTHON_MODULE(emccanon) {
     // def("enqueue_ARC_FEED", &enqueue_ARC_FEED);
     // def("enqueue_M_USER_COMMAND ", &enqueue_M_USER_COMMAND);
     // def("enqueue_START_CHANGE", & enqueue_START_CHANGE);
+    def("GET_EXTERNAL_OFFSET_APPLIED",&GET_EXTERNAL_OFFSET_APPLIED);
+    def("GET_EXTERNAL_OFFSETS",&GET_EXTERNAL_OFFSETS);
+
 }

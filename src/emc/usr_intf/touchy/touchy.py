@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-
 # Touchy is Copyright (c) 2009  Chris Radek <chris@timeguy.com>
 #
 # Touchy is free software: you can redistribute it and/or modify
@@ -12,8 +11,6 @@
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-
-
 
 import sys, os
 BASE = os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]), ".."))
@@ -36,6 +33,7 @@ except:
 
 import atexit
 import tempfile
+import signal
 
 empty_program = tempfile.NamedTemporaryFile()
 empty_program.write("%\n%\n")
@@ -141,7 +139,7 @@ class touchy:
                 if os.path.exists(themedir):
                     model = self.wTree.get_widget("theme_choice").get_model()
                     model.clear()
-                    model.append(("Follow System Theme",))
+                    model.append((_("Follow System Theme"),))
                     temp = 0
                     names = os.listdir(themedir)
                     names.sort()
@@ -258,7 +256,7 @@ class touchy:
                 units=self.ini.find("TRAJ","LINEAR_UNITS")
 
                 if units==None:
-                        units=self.ini.find("AXIS_0","UNITS")
+                        units=self.ini.find("AXIS_X","UNITS")
 
                 if units=="mm" or units=="metric" or units == "1.0":
                         self.machine_units_mm=1
@@ -398,8 +396,30 @@ class touchy:
         def quit(self, unused):
                 gtk.main_quit()
 
+        def send_message(self,socket,dest_xid,message):
+            event = gtk.gdk.Event(gtk.gdk.CLIENT_EVENT)
+            event.window = socket.get_window()                  # needs sending gdk window
+            event.message_type = gtk.gdk.atom_intern('Gladevcp')    # change to any text you like
+            event.data_format = 8                               # 8 bit (char) data (options: long,short)
+            event.data = message                                # must be exactly 20 char bytes (options: 5 long or 10 short)
+            event.send_event = True                             # signals this was sent explicedly
+            event.send_client_message(dest_xid)                 # uses destination XID window number
+
+
         def tabselect(self, notebook, b, tab):
+                new_tab=notebook.get_nth_page(tab)
+                old_tab=notebook.get_nth_page(self.tab)
                 self.tab = tab
+                for c in self._dynamic_childs:
+                    if new_tab.__gtype__.name =='GtkSocket':
+                        w= new_tab.get_plug_window()
+                        if new_tab.get_id()==c:
+                                self.send_message(new_tab,w.xid,"Visible\0\0\0\0\0\0\0\0\0\0\0\0\0")
+
+                    if old_tab.__gtype__.name =='GtkSocket':
+                        w= old_tab.get_plug_window()
+                        if old_tab.get_id()==c:
+                                self.send_message(old_tab,w.xid,"Hidden\0\0\0\0\0\0\0\0\0\0\0\0\0\0")
 
         def pointer_hide(self, b):
                 if self.radiobutton_mask: return
@@ -681,6 +701,10 @@ class touchy:
                 self.radiobutton_mask = 1
                 s = linuxcnc.stat()
                 s.poll()
+                # Show effect of external override inputs
+                self.fo_val = s.feedrate * 100
+                self.so_val = s.spindle[0]['override'] * 100
+                self.mv_val = s.max_velocity * 60
                 am = s.axis_mask
                 if not self.resized_wheelbuttons:
                         at = self.wTree.get_widget("axis_table")
@@ -771,7 +795,6 @@ class touchy:
 		if self.wheel == "scrolling":
 			d0 = d * 10 ** (2-self.wheelinc)
 			if d != 0: self.listing.next(None, d0)
-
                 set_label(self.wTree.get_widget("fo").child, "FO: %d%%" % self.fo_val)
                 set_label(self.wTree.get_widget("so").child, "SO: %d%%" % self.so_val)
                 set_label(self.wTree.get_widget("mv").child, "MV: %d" % self.mv_val)
@@ -811,6 +834,8 @@ class touchy:
 			cmd = c.replace('{XID}', str(xid))
 			child = Popen(cmd.split())
 			self._dynamic_childs[xid] = child
+			child.send_signal(signal.SIGCONT)
+			print "XID = ", xid
 		nb.show_all()
 
 	def kill_dynamic_childs(self):

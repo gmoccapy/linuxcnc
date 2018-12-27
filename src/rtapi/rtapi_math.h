@@ -12,7 +12,7 @@
 //
 //    You should have received a copy of the GNU General Public License
 //    along with this program; if not, write to the Free Software
-//    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+//    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #ifndef RTAPI_MATH_H
 #define RTAPI_MATH_H
 
@@ -43,6 +43,7 @@ extern double exp(double);
 extern double pow(double, double);
 extern double fmin(double, double);
 extern double fmax(double, double);
+extern double fmod(double, double);
 
 extern double round(double);
 extern double ceil(double);
@@ -54,6 +55,7 @@ extern double floor(double);
 #define nan(x) __builtin_nan((x))
 
 #define isinf(x) __builtin_isinf((x))
+#define isfinite(x) __builtin_isfinite((x))
 
 extern __inline double atan (double __y) {
     return atan2(__y, 1.);

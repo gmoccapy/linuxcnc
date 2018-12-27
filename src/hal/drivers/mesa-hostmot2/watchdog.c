@@ -47,7 +47,7 @@ void hm2_watchdog_process_tram_read(hostmot2_t *hm2) {
     // last time we were here, everything was fine
     // see if the watchdog has bit since then
     if (hm2->watchdog.status_reg[0] & 0x1) {
-        HM2_PRINT("Watchdog has bit! (set the .has-bit pin to False to resume)\n");
+        HM2_ERR("Watchdog has bit! (set the .has-bit pin to False to resume)\n");
         *hm2->watchdog.instance[0].hal.pin.has_bit = 1;
         hm2->llio->needs_reset = 1;
     }
@@ -261,9 +261,10 @@ void hm2_watchdog_write(hostmot2_t *hm2, long period_ns) {
     // writing to the watchdog wakes it up, and now we can't stop or it will bite!
     hm2->watchdog.instance[0].enable = 1;
 
-    if (hm2->llio->needs_reset) {
+    if (hm2->llio->needs_reset || hm2->llio->needs_soft_reset) {
         // user has cleared the bit
-        HM2_PRINT("trying to recover from IO error or Watchdog bite\n");
+        if(hm2->llio->needs_reset)
+            HM2_PRINT("trying to recover from IO error or Watchdog bite\n");
 
         // reset the watchdog status
         hm2->watchdog.status_reg[0] = 0;
@@ -274,9 +275,10 @@ void hm2_watchdog_write(hostmot2_t *hm2, long period_ns) {
             HM2_PRINT("error recovery failed\n");
             return;
         }
-        HM2_PRINT("error recover successful!\n");
+        if(hm2->llio->needs_reset)
+            HM2_PRINT("error recover successful!\n");
 
-        hm2->llio->needs_reset = 0;
+        hm2->llio->needs_reset = hm2->llio->needs_soft_reset = 0;
     }
 
     if (

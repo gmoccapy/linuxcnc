@@ -355,9 +355,16 @@ rtapi_pci_device_id gm_pci_tbl[] = {
         .vendor = PLX_VENDOR_ID,
         .device = GM_DEVICE_ID,
         .subvendor = PLX_VENDOR_ID,
-        .subdevice = GM_SUBDEVICE_ID,
+        .subdevice = GM_SUBDEVICE_ID_1,
     },
  
+    {
+        .vendor = PLX_VENDOR_ID,
+        .device = GM_DEVICE_ID,
+        .subvendor = PLX_VENDOR_ID,
+        .subdevice = GM_SUBDEVICE_ID_2,
+    },
+
     {0,},
 };
 
@@ -684,7 +691,8 @@ ExportStepgen(void *arg, int comp_id, int version)
 		if(error == 0) error = hal_param_float_newf(HAL_RW, &(device->stepgen[i].maxvel), comp_id, "gm.%1d.stepgen.%1d.maxvel", boardId, i);
 		if(error == 0) error = hal_param_bit_newf(HAL_RW, &(device->stepgen[i].polarity_A), comp_id, "gm.%1d.stepgen.%1d.invert-step1", boardId, i);
 		if(error == 0) error = hal_param_bit_newf(HAL_RW, &(device->stepgen[i].polarity_B), comp_id, "gm.%1d.stepgen.%1d.invert-step2", boardId, i);
-		if(error == 0) error = hal_param_float_newf(HAL_RW, &(device->stepgen[i].position_scale), comp_id, "gm.%1d.stepgen.%1d.position-scale", boardId, i); if(error != 0) break;
+		if(error == 0) error = hal_param_float_newf(HAL_RW, &(device->stepgen[i].position_scale), comp_id, "gm.%1d.stepgen.%1d.position-scale", boardId, i);
+                if(error != 0) break;
 
 		//Init parameters
 		device->stepgen[i].curr_steplen		= 0;

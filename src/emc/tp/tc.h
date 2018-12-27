@@ -22,6 +22,8 @@
 #include "tc_types.h"
 #include "tp_types.h"
 
+double tcGetMaxTargetVel(TC_STRUCT const * const tc,
+        double max_scale);
 int tcGetEndpoint(TC_STRUCT const * const tc, EmcPose * const out);
 int tcGetStartpoint(TC_STRUCT const * const tc, EmcPose * const out);
 int tcGetPos(TC_STRUCT const * const tc,  EmcPose * const out);
@@ -71,7 +73,8 @@ int pmCircle9Init(PmCircle9 * const circ9,
 
 int pmRigidTapInit(PmRigidTap * const tap,
         EmcPose const * const start,
-        EmcPose const * const end);
+        EmcPose const * const end,
+        double reversal_scale);
 
 double pmRigidTapTarget(PmRigidTap * const tap, double uu_per_rev);
 

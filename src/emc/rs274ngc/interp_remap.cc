@@ -13,6 +13,7 @@
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
+#define BOOST_PYTHON_MAX_ARITY 4
 #include "python_plugin.hh"
 #include "interp_python.hh"
 #include <boost/python/list.hpp>
@@ -140,7 +141,7 @@ int Interp::convert_remapped_code(block_pointer block,
     block_pointer eblock = &EXECUTING_BLOCK(*settings);
     eblock->call_type = CT_REMAP; 
     CHKS(status != INTERP_OK,
-	 "convert_remapped_code: inital read returned %s",
+	 "convert_remapped_code: initial read returned %s",
 	 interp_status(status));
     return(- phase);
 }
@@ -312,9 +313,10 @@ int Interp::add_parameters(setup_pointer settings,
 	}
     }
     // ^...require positive speed
+    //FIXME: How do we decide which spindle they want to use? (andypugh 17/7/16)
     if (strchr(required,'^')) {
-	if (settings->speed > 0.0) {
-	    STORE("s",settings->speed);
+	if (settings->speed[0] > 0.0) {
+	    STORE("s",settings->speed[0]);
 	} else {
 	    strcat(tail,"S>0,");
 	    errored = true;
@@ -515,10 +517,7 @@ int Interp::parse_remap(const char *inistring, int lineno)
 	break;
 
     case 'm':
-	if (sscanf(code + 1, "%d", &mcode) == 1) {
-	    _setup.remaps[code] = r;
-	    _setup.m_remapped[mcode] = &_setup.remaps[code];
-	} else {
+	if (sscanf(code + 1, "%d", &mcode) != 1) {
 	    Error("parsing M-code: expecting integer like 'M420', got '%s' : %d:REMAP = %s",
 		  code,lineno,inistring);
 	    goto fail;
@@ -533,6 +532,8 @@ int Interp::parse_remap(const char *inistring, int lineno)
 		  code,lineno,inistring);
 	    goto fail;
 	}
+        _setup.remaps[code] = r;
+        _setup.m_remapped[mcode] = &_setup.remaps[code];
 	break;
     case 'g':
 
@@ -554,7 +555,6 @@ int Interp::parse_remap(const char *inistring, int lineno)
 	    Error("warning: code '%s' : no modalgroup=<int> given, using default group %d : %d:REMAP = %s",
 		  code, GCODE_DEFAULT_MODAL_GROUP, lineno, inistring);
 	    r.modal_group = GCODE_DEFAULT_MODAL_GROUP;
-	    break;
 	}
 	if (!G_MODE_OK(r.modal_group)) {
 	    Error("error: code '%s' : %s modalgroup=<int> given  : %d:REMAP = %s",

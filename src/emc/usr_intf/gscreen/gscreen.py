@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 #    Gscreen a GUI for linuxcnc cnc controller 
 #    Chris Morley copyright 2012
@@ -15,7 +15,7 @@
 #
 #    You should have received a copy of the GNU General Public License
 #    along with this program; if not, write to the Free Software
-#    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 """
 # Gscreen is made for running linuxcnc CNC machines
@@ -50,6 +50,7 @@ import gtk
 import gtk.glade
 import gobject
 import hal
+import errno
 import gladevcp.makepins
 from gladevcp.gladebuilder import GladeBuilder
 import pango
@@ -60,14 +61,23 @@ import time
 from time import strftime,localtime
 import hal_glib
 
+#--------------------------------------------------------
+# limit number of times err msgs are displayed
+excepthook_msg_ct = 0
+excepthook_msg_ct_max = 10
+
+update_spindle_bar_error_ct = 0
+update_spindle_bar_error_ct_max = 3
+#--------------------------------------------------------
+
 # try to add a notify system so messages use the
 # nice intergrated pop-ups
 # Ubuntu kinda wrecks this be not following the
 # standard - you can't set how long the message stays up for.
 # I suggest fixing this with a PPA off the net
 # https://launchpad.net/~leolik/+archive/leolik?field.series_filter=lucid
+NOTIFY_AVAILABLE = False
 try:
-    NOTIFY_AVAILABLE = False
     import pynotify
     if not pynotify.init("Gscreen"):
         print "**** GSCREEN INFO: There was a problem initializing the pynotify module"
@@ -76,16 +86,16 @@ try:
 except:
     print "**** GSCREEN INFO: You don't seem to have pynotify installed"
 
+_AUDIO_AVAILABLE = False
 # try to add ability for audio feedback to user.
 try:
-    _AUDIO_AVAILABLE = False
     import pygst
     pygst.require("0.10")
     import gst
     _AUDIO_AVAILABLE = True
     print "**** GSCREEN INFO: audio available!"
 except:
-    print "**** GSCREEN INFO: no audio alerts available - PYGST libray not installed?"
+    print "**** GSCREEN WARNING: no audio alerts available - Is python-gst0.10 libray installed?"
 
 # BASE is the absolute path to linuxcnc base
 # libdir is the path to Gscreen python files
@@ -150,15 +160,22 @@ def excepthook(exc_type, exc_obj, exc_tb):
     except NameError:
         w = None
     lines = traceback.format_exception(exc_type, exc_obj, exc_tb)
-    m = gtk.MessageDialog(w,
+    global excepthook_msg_ct,excepthook_msg_ct_max
+    excepthook_msg_ct += 1
+    if excepthook_msg_ct < excepthook_msg_ct_max:
+        print "*******************************************************\n",excepthook_msg_ct
+        print "".join(lines)
+        print "*******************************************************\n",excepthook_msg_ct
+    if excepthook_msg_ct < 1:
+        m = gtk.MessageDialog(w,
                 gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
                 gtk.MESSAGE_ERROR, gtk.BUTTONS_OK,
                 ("Gscreen encountered an error.  The following "
                 "information may be useful in troubleshooting:\n\n")
                 + "".join(lines))
-    m.show()
-    m.run()
-    m.destroy()
+        m.show()
+        m.run()
+        m.destroy()
 sys.excepthook = excepthook
 
 # constants
@@ -213,7 +230,7 @@ class Widgets:
         return r
 
 # a class for holding data
-# here we intialize the data
+# here we initialize the data
 class Data:
     def __init__(self):
         # constants for mode idenity
@@ -247,7 +264,7 @@ class Data:
         self.highlight_major = False
         self.display_order = (_REL,_DTG,_ABS)
         self.mode_order = (self._MAN,self._MDI,self._AUTO)
-        self.mode_labels = ["Manual Mode","MDI Mode","Auto Mode"]
+        self.mode_labels = [_("Manual Mode"),_("MDI Mode"),_("Auto Mode")]
         self.IPR_mode = False
         self.plot_view = ("p","x","y","y2","z","z2")
         self.task_mode = 0
@@ -514,8 +531,12 @@ class Gscreen:
         self.keylookup = keybindings.Keylookup()
 
         if _AUDIO_AVAILABLE:
-            self.audio = Player()
-            self.data.audio_available = True       
+            try:
+                self.audio = Player()
+                self.data.audio_available = True
+            except:
+                print "**** GSCREEN WARNING: Audio test failed - Is gstreamer0.10-plugins-base installed?"
+                self.data.audio_available = False
 
         # access to EMC control
         self.emc = emc_interface.emc_control(linuxcnc)
@@ -545,9 +566,9 @@ class Gscreen:
         units=self.inifile.find("TRAJ","LINEAR_UNITS")
         if units==None:
             # else then the X axis units
-            units=self.inifile.find("AXIS_0","UNITS")
+            units=self.inifile.find("AXIS_X","UNITS")
             if units==None:
-                self.add_alarm_entry(_("No UNITS entry found in [TRAJ] or [AXIS_0] of INI file"))
+                self.add_alarm_entry(_("No UNITS entry found in [TRAJ] or [AXIS_X] of INI file"))
         if units=="mm" or units=="metric" or units == "1.0":
             self.machine_units_mm=1
             conversion=[1.0/25.4]*3+[1]*3+[1.0/25.4]*3
@@ -585,7 +606,7 @@ class Gscreen:
         dbg("**** GSCREEN INFO: Preference file path: %s"%temp)
         self.prefs = preferences.preferences(temp)
 
-        # Intialize prefereces either from the handler file or from Gscreen
+        # Initialize prefereces either from the handler file or from Gscreen
         if "initialize_preferences" in dir(self.handler_instance):
             self.handler_instance.initialize_preferences()
         else:
@@ -601,7 +622,14 @@ class Gscreen:
         # check for a local theme gtkrc file
         localtheme = os.path.join(CONFIGPATH,'%s_theme'%self.skinname)
         if os.path.exists(localtheme):
+            print 'local theme path found'
             self.data.local_theme = 'Link to %s_theme'% self.skinname
+            # make ~/.themes - quietly ignore the error if it exists
+            try:
+                os.makedirs(userthemedir)
+            except OSError as exception:
+                if exception.errno != errno.EEXIST:
+                    raise
             # create systemlink because one can't store themes in an arbitrary folder.
             if not os.path.exists(userthemedir+'/%s'%self.data.local_theme):
                 os.symlink(localtheme,userthemedir+'/%s'%self.data.local_theme)
@@ -662,9 +690,9 @@ class Gscreen:
 
         # max velocity settings: more then one place to check
         # This is the maximum velocity of the machine
-        temp = self.inifile.find("TRAJ","MAX_VELOCITY")
+        temp = self.inifile.find("TRAJ","MAX_LINEAR_VELOCITY")
         if temp == None:
-            self.add_alarm_entry(_("No MAX_VELOCITY found in [TRAJ] of the INI file"))
+            self.add_alarm_entry(_("No MAX_LINEAR_VELOCITY found in [TRAJ] of the INI file"))
             temp = 1.0
         self.data._maxvelocity = float(temp)
 
@@ -1182,7 +1210,7 @@ class Gscreen:
         """ 
         self.widgets.show_offsets.set_active( self.data.show_offsets )
         self.widgets.gremlin.show_offsets = self.data.show_offsets
-        self.widgets.grid_size.set_value(self.data.grid_size) 
+        self.widgets.grid_size.set_value(self.data.grid_size)
         self.widgets.gremlin.grid_size = self.data.grid_size
         self.widgets.gremlin.set_property('view',self.data.plot_view[0])
         self.widgets.gremlin.set_property('metric_units',(self.data.dro_units == self.data._MM))
@@ -1219,7 +1247,7 @@ class Gscreen:
             expects widget to be named statusbar1
         """
         self.statusbar_id = self.widgets.statusbar1.get_context_id("Statusbar1")
-        self.homed_status_message = self.widgets.statusbar1.push(1,"Ready For Homing")
+        self.homed_status_message = self.widgets.statusbar1.push(1,_("Ready For Homing"))
 
     def init_entry(self):
         return
@@ -1280,19 +1308,16 @@ class Gscreen:
         model = self.widgets.theme_choice.get_model()
         model.clear()
         # add the default system theme
-        model.append(("Follow System Theme",))
+        model.append((_("Follow System Theme"),))
         # if there is a local custom theme add it
         if self.data.local_theme:
-            model.append(("Local Config Theme",))
+            model.append((_("Local Config Theme"),))
         themes = []
         # add user themes
         if os.path.exists(userthemedir):
             names = os.listdir(userthemedir)
             names.sort()
             for dirs in names:
-                # don't add local custom themes
-                if 'Link' in dirs:
-                    continue
                 try:
                     sbdirs = os.listdir(os.path.join(userthemedir, dirs))
                     if 'gtk-2.0' in sbdirs:
@@ -1391,7 +1416,7 @@ class Gscreen:
         for axis in self.data.axis_list:
             self.data.sensitive_on_off.append("axis_%s"% axis)
 
-    # buttons that need to be sensitive based on the interpeter runing or being idle
+    # buttons that need to be sensitive based on the interpreter running or being idle
     def init_sensitive_run_idle(self):
         """creates a list of widgets that need to be sensitive to interpeter run/idle
            list is held in data.sensitive_run/idle
@@ -1724,7 +1749,11 @@ class Gscreen:
             The search text string is set by text entry widget 'search_entry'.
             This is a callback function called by any named widget
         """
-        self.widgets.gcode_view.text_search(direction=True,mixed_case=self.widgets.ignorecase_checkbutton.get_active(),
+        try:
+            CASE = self.widgets.ignorecase_checkbutton.get_active()
+        except:
+            CASE = True
+        self.widgets.gcode_view.text_search(direction=True,mixed_case=CASE,
                                 text=self.widgets.search_entry.get_text())
 
     def search_bwd(self,widget):
@@ -1734,7 +1763,11 @@ class Gscreen:
             The search text string is set by text entry widget 'search_entry'.
             This is a callback function called by any named widget
         """
-        self.widgets.gcode_view.text_search(direction=False,mixed_case=self.widgets.ignorecase_checkbutton.get_active(),
+        try:
+            CASE = self.widgets.ignorecase_checkbutton.get_active()
+        except:
+            CASE = True
+        self.widgets.gcode_view.text_search(direction=False,mixed_case=CASE,
                                 text=self.widgets.search_entry.get_text())
 
     def replace_text(self,widget):
@@ -1746,9 +1779,17 @@ class Gscreen:
             The replace all option is set by widget 'replaceall_checkbutton' state
             This is a callback function called by any named widget
         """
-        self.widgets.gcode_view.replace_text_search(direction=True,mixed_case=self.widgets.ignorecase_checkbutton.get_active(),
+        try:
+            CASE = self.widgets.ignorecase_checkbutton.get_active()
+        except:
+            CASE = True
+        try:
+            RE_ALL = self.widgets.replaceall_checkbutton.get_active()
+        except:
+            RE_ALL = False
+        self.widgets.gcode_view.replace_text_search(direction=True,mixed_case=CASE,
                                 text=self.widgets.search_entry.get_text(),re_text=self.widgets.search_entry1.get_text(),
-                                replace_all=self.widgets.replaceall_checkbutton.get_active())
+                                replace_all=RE_ALL)
 
     def undo_edit(self,widget):
         """This will undo one level of change in the gcode_view.
@@ -1799,7 +1840,11 @@ class Gscreen:
             method = self.keylookup.convert(keyname)
             if method:
                 try:
-                    return self.handler_instance[method](state,SHIFT,CNTRL,ALT)
+                    try:
+                        return self.handler_instance[method](state,SHIFT,CNTRL,ALT)
+                    except:
+                        self.show_try_errors()
+                        return self.handler_instance.keybindings[method](state,SHIFT,CNTRL,ALT)
                 except:
                     self.show_try_errors()
                     return self[method](state,SHIFT,CNTRL,ALT) 
@@ -2481,12 +2526,12 @@ class Gscreen:
             self.emc.estop_reset(1)
         elif not self.data.machine_on:
             self.emc.machine_on(1)
-            self.widgets.on_label.set_text("Machine On")
+            self.widgets.on_label.set_text(_("Machine On"))
             self.add_alarm_entry(_("Machine powered on"))
         else:
             self.emc.machine_off(1)
             self.emc.estop(1)
-            self.widgets.on_label.set_text("Machine Off")
+            self.widgets.on_label.set_text(_("Machine Off"))
             self.add_alarm_entry(_("Machine Estopped!"))
 
     def on_calc_clicked(self,widget):
@@ -3278,7 +3323,7 @@ class Gscreen:
                 n.set_urgency(pynotify.URGENCY_CRITICAL)
                 n.set_timeout(int(timeout * 1000) )
                 n.show()
-            if _AUDIO_AVAILABLE:
+            if self.data.audio_available:
                 if icon == ALERT_ICON:
                     self.audio.set_sound(self.data.error_sound)
                 else:
@@ -4401,7 +4446,12 @@ class Gscreen:
         try:
             self.widgets.s_display2.set_value(abs(self.data.spindle_speed))
         except:
-            self.show_try_errors()
+            global update_spindle_bar_error_ct,update_spindle_bar_error_ct_max
+            if update_spindle_bar_error_ct < update_spindle_bar_error_ct_max:
+                print "%2d/%2d update_spindle_bar error"%(
+                       update_spindle_bar_error_ct,update_spindle_bar_error_ct_max)
+                self.show_try_errors()
+                update_spindle_bar_error_ct += 1
 
     def update_dro(self):
         # DRO
@@ -4493,7 +4543,10 @@ class Gscreen:
         systemlabel = (_("Machine"),"G54","G55","G56","G57","G58","G59","G59.1","G59.2","G59.3")
         tool = str(self.data.tool_in_spindle)
         if tool == None: tool = "None"
-        self.widgets.system.set_text(("Tool %s     %s"%(tool,systemlabel[self.data.system])))
+        self.widgets.system.set_text((_("Tool %(t)s     %(l)s")%
+             ({'t':tool,
+               'l':systemlabel[self.data.system]
+             })))
 
     def update_coolant_leds(self):
         # coolant
@@ -4522,12 +4575,12 @@ class Gscreen:
     def update_jog_rate_label(self):
         rate = round(self.status.convert_units(self.data.jog_rate),2)
         if self.data.dro_units == self.data._MM:
-            text = "%4.2f mm/min"% (rate)
+            text = _("%4.2f mm/min")% (rate)
         else:
-            text = "%3.2f IPM"% (rate)
+            text = _("%3.2f IPM")% (rate)
         self.widgets.jog_rate.set_text(text)
         try:
-            text = "%4.2f DPM"% (self.data.angular_jog_rate)
+            text = _("%4.2f DPM")% (self.data.angular_jog_rate)
             self.widgets.angular_jog_rate.set_text(text)
         except:
             pass
@@ -4536,15 +4589,19 @@ class Gscreen:
         # Mode / view
         modenames = self.data.mode_labels
         time = strftime("%a, %d %b %Y  %I:%M:%S %P    ", localtime())
-        self.widgets.mode_label.set_label( "%s   View -%s               %s"% (modenames[self.data.mode_order[0]],self.data.plot_view[0],time) )
+        self.widgets.mode_label.set_label( _("%(n)s   View -%(v)s               %(t)s")%
+              ({'n':modenames[self.data.mode_order[0]],
+                'v':self.data.plot_view[0],
+                't':time
+              }))
 
     def update_units_button_label(self):
         label = self.widgets.metric_select.get_label()
         data = self.data.dro_units
-        if data and not label == " mm ":
-            temp = " mm "
-        elif data == 0 and not label == "Inch":
-            temp = "Inch"
+        if data and not label == _(" mm "):
+            temp = _(" mm ")
+        elif data == 0 and not label == _("Inch"):
+            temp = _("Inch")
         else: return
         self.widgets.metric_select.set_label(temp)
 

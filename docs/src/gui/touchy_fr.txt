@@ -3,7 +3,7 @@
 
 = L'interface graphique Touchy
 
-[[cha:touchy-gui]] (((Touchy GUI)))
+[[cha:touchy-gui]]
 
 Touchy est une interface utilisateur pour LinuxCNC, destinée à être utilisée avec les
 panneaux de commande de machines. Il ne nécessite ni clavier, ni souris.
@@ -13,7 +13,7 @@ avec une manivelle électronique (MPG) et des boutons et interrupteurs.
 
 .L'interface tactile Touchy
 
-image::images/touchy_fr.png[]
+image::images/touchy_fr.png[alt="L'interface tactile Touchy"]
 
 == Panneau de Configuration
 

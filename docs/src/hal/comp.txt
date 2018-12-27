@@ -1,4 +1,4 @@
-[[cha:hal-component-generator]] (((HAL Component Generator)))
+[[cha:hal-component-generator]]
 
 = The HAL Component Generator
 
@@ -45,6 +45,23 @@ sudo apt-get install linuxcnc-dev
 
 Another method is to use the Synaptic Package Manager from the main Ubuntu menu
 to install linuxcnc-dev.
+
+== Using a Component
+
+Components need to be loaded and added to a thread before it can be used.
+
+.Example
+----
+loadrt threads name1=servo-thread period1=1000000
+loadrt ddt
+addf ddt.0 servo-thread
+----
+
+More information on 'loadrt' and 'addf' can be found in the
+<<cha:basic-hal-reference,Hal Basic Referece>>.
+
+To test your component you can follow the examples in the
+<<cha:hal-tutorial,HAL Tutorial>>.
 
 == Definitions
 
@@ -180,6 +197,9 @@ Hopefully these paragraphs have allowed you to understand "zot"
 better."""
 ----
 +
+Or a string may be preceded by the literal character 'r', in which
+case the string is interpreted like a Python raw-string.
++
 The documentation string is in "groff -man" format. For more
 information on this markup format, see 'groff_man(7)'. Remember that
 'halcompile' interprets backslash escapes in strings, so for instance
@@ -187,6 +207,13 @@ to set the italic font for the word 'example', write:
 +
 ----
 "\\fIexample\\fB"
+----
++
+In this case, r-strings are particularly useful, because the backslashes
+in an r-string need not be doubled:
++
+----
+r"\fIexample\fB"
 ----
 
 * 'TYPE' - One of the HAL types: 'bit', 'signed', 'unsigned', or 'float'. The old

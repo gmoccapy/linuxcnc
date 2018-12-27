@@ -16,7 +16,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #------------------------------------------------------------------------------
 
 """
@@ -141,7 +141,7 @@ class PopupKeyboard:
 
         if use_coord_buttons: self.support_coord_buttons()
 
-        # making it insensitive clears the inital selection region
+        # making it insensitive clears the initial selection region
         self.num_entry.set_state(gtk.STATE_INSENSITIVE)
         self.num_entry.modify_text(gtk.STATE_INSENSITIVE
                       ,gtk.gdk.color_parse('black'))

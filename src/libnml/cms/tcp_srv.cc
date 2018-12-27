@@ -303,7 +303,7 @@ static void handle_pipe_error(int signum)
 
 void CMS_SERVER_REMOTE_TCP_PORT::run()
 {
-    unsigned long bytes_ready;
+    int bytes_ready;
     int ready_descriptors;
     if (NULL == client_ports) {
 	rcs_print_error("CMS_SERVER: List of client ports is NULL.\n");
@@ -422,7 +422,7 @@ void CMS_SERVER_REMOTE_TCP_PORT::run()
 		    if (client_port_to_check->blocking) {
 			if (client_port_to_check->threadId > 0) {
 			    rcs_print_debug(PRINT_SERVER_THREAD_ACTIVITY,
-				"Data recieved from %s:%d when it should be blocking (bytes_ready=%ld).\n",
+				"Data received from %s:%d when it should be blocking (bytes_ready=%d).\n",
 				inet_ntoa
 				(client_port_to_check->address.
 				    sin_addr),
@@ -700,7 +700,7 @@ void CMS_SERVER_REMOTE_TCP_PORT::handle_request(CLIENT_TCP_PORT *
     buffer_number = ntohl(*((uint32_t *) temp_buffer + 2));
 
     rcs_print_debug(PRINT_ALL_SOCKET_REQUESTS,
-	"TCPSVR request recieved: fd = %d, serial_number=%ld, request_type=%ld, buffer_number=%ld\n",
+	"TCPSVR request received: fd = %d, serial_number=%ld, request_type=%ld, buffer_number=%ld\n",
 	_client_tcp_port->socket_fd,
 	_client_tcp_port->serial_number, request_type, buffer_number);
 

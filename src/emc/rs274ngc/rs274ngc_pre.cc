@@ -65,6 +65,7 @@ suppression can produce more concise output. Future versions might
 include an option for suppressing superfluous commands.
 
 ****************************************************************************/
+#define BOOST_PYTHON_MAX_ARITY 4
 #include "python_plugin.hh"
 #include <boost/python/dict.hpp>
 #include <boost/python/extract.hpp>
@@ -87,6 +88,7 @@ include an option for suppressing superfluous commands.
 #include <libintl.h>
 #include <set>
 #include <stdexcept>
+#include <new>
 
 #include "rtapi.h"
 #include "inifile.hh"		// INIFILE
@@ -444,7 +446,7 @@ int Interp::_execute(const char *command)
 	      if (cblock->remappings.find(- status) == cblock->remappings.end()) {
 		  ERS("BUG: execute_block: got %d - not in remappings() !! (next_remap=%d)",- status,next_remap);
 	      }
-	      logRemap("inital phase %d",-status);
+	      logRemap("initial phase %d",-status);
 	      if (MDImode) {
 		  // need to trigger execution of parsed _setup.block1 here
 		  // replicate MDI oword execution code here
@@ -452,9 +454,6 @@ int Interp::_execute(const char *command)
 		      (_setup.mdi_interrupt)) { 
 
 		      status = convert_control_functions(eblock, &_setup);
-		      // a prolog might yield INTERP_EXECUTE_FINISH too
-		      if (status == INTERP_EXECUTE_FINISH) 
-			  _setup.mdi_interrupt = true;
 		      CHP(status);
 		      if (_setup.mdi_interrupt) {
 			  _setup.mdi_interrupt = false;
@@ -615,7 +614,8 @@ int Interp::remap_finished(int phase)
 		// if ((status == INTERP_OK) || (status == INTERP_ENDFILE) || (status == INTERP_EXIT) || (status == INTERP_EXECUTE_FINISH)) {
 		// leftover items finished. Drop a remapping level.
 
-		CHP(leave_remap());
+		if (status != INTERP_EXIT) // Don't drop remap lev. at prog exit
+		    CHP(leave_remap());
 		logRemap("executing block leftover items complete, status=%s  remap_level=%d call_level=%d tc=%d probe=%d input=%d mdi_interrupt=%d  line=%d backtoline=%d",
 			 interp_status(status),_setup.remap_level,_setup.call_level,_setup.toolchange_flag,
 			_setup.probe_flag,_setup.input_flag,_setup.mdi_interrupt,_setup.sequence_number,
@@ -656,7 +656,15 @@ int Interp::find_remappings(block_pointer block, setup_pointer settings)
 	    block->remappings.insert(STEP_PREPARE);
     }
     // User defined M-Codes in group 5
-    if (IS_USER_MCODE(block,settings,5))
+    if (IS_USER_MCODE(block,settings,5) &&
+	!(((block->m_modes[5] == 62) && remap_in_progress("M62")) ||
+	  ((block->m_modes[5] == 63) && remap_in_progress("M63")) ||
+	  ((block->m_modes[5] == 64) && remap_in_progress("M64")) ||
+	  ((block->m_modes[5] == 65) && remap_in_progress("M65")) ||
+	  ((block->m_modes[5] == 66) && remap_in_progress("M66")) ||
+	  ((block->m_modes[5] == 67) && remap_in_progress("M67")) ||
+	  ((block->m_modes[5] == 68) && remap_in_progress("M68"))))
+	// non-recursive behavior
 	block->remappings.insert(STEP_M_5);
 
     // User defined M-Codes in group 6 (including M6, M61)
@@ -824,13 +832,14 @@ int Interp::init()
   _setup.b_axis_wrapped = 0;
   _setup.c_axis_wrapped = 0;
   _setup.random_toolchanger = 0;
-  _setup.a_indexer = 0;
-  _setup.b_indexer = 0;
-  _setup.c_indexer = 0;
+  _setup.a_indexer_jnum = -1; // -1 means not used
+  _setup.b_indexer_jnum = -1; // -1 means not used
+  _setup.c_indexer_jnum = -1; // -1 means not used
   _setup.return_value = 0;
   _setup.value_returned = 0;
   _setup.remap_level = 0; // remapped blocks stack index
   _setup.call_state = CS_NORMAL;
+  _setup.num_spindles = 1;
 
   // default arc radius tolerances
   // we'll try to override these from the ini file below
@@ -849,15 +858,22 @@ int Interp::init()
           inifile.Find(&_setup.tool_change_at_g30, "TOOL_CHANGE_AT_G30", "EMCIO");
           inifile.Find(&_setup.tool_change_quill_up, "TOOL_CHANGE_QUILL_UP", "EMCIO");
           inifile.Find(&_setup.tool_change_with_spindle_on, "TOOL_CHANGE_WITH_SPINDLE_ON", "EMCIO");
-          inifile.Find(&_setup.a_axis_wrapped, "WRAPPED_ROTARY", "AXIS_3");
-          inifile.Find(&_setup.b_axis_wrapped, "WRAPPED_ROTARY", "AXIS_4");
-          inifile.Find(&_setup.c_axis_wrapped, "WRAPPED_ROTARY", "AXIS_5");
+          inifile.Find(&_setup.a_axis_wrapped, "WRAPPED_ROTARY", "AXIS_A");
+          inifile.Find(&_setup.b_axis_wrapped, "WRAPPED_ROTARY", "AXIS_B");
+          inifile.Find(&_setup.c_axis_wrapped, "WRAPPED_ROTARY", "AXIS_C");
           inifile.Find(&_setup.random_toolchanger, "RANDOM_TOOLCHANGER", "EMCIO");
           inifile.Find(&_setup.feature_set, "FEATURES", "RS274NGC");
+          inifile.Find(&_setup.num_spindles, "SPINDLES", "TRAJ");
 
-          inifile.Find(&_setup.a_indexer, "LOCKING_INDEXER", "AXIS_3");
-          inifile.Find(&_setup.b_indexer, "LOCKING_INDEXER", "AXIS_4");
-          inifile.Find(&_setup.c_indexer, "LOCKING_INDEXER", "AXIS_5");
+          if (NULL != (inistring =inifile.Find("LOCKING_INDEXER_JOINT", "AXIS_A"))) {
+              _setup.a_indexer_jnum = atol(inistring);
+          }
+          if (NULL != (inistring =inifile.Find("LOCKING_INDEXER_JOINT", "AXIS_B"))) {
+              _setup.b_indexer_jnum = atol(inistring);
+          }
+          if (NULL != (inistring =inifile.Find("LOCKING_INDEXER_JOINT", "AXIS_C"))) {
+              _setup.c_indexer_jnum = atol(inistring);
+          }
           inifile.Find(&_setup.orient_offset, "ORIENT_OFFSET", "RS274NGC");
 
           inifile.Find(&_setup.debugmask, "DEBUG", "EMC");
@@ -1016,6 +1032,13 @@ int Interp::init()
 		       "DISABLE_G92_PERSISTENCE",
 		       "RS274NGC");
 
+	  // ini file m98/m99 subprogram default setting
+	  inifile.Find(&_setup.disable_fanuc_style_sub,
+		       "DISABLE_FANUC_STYLE_SUB",
+		       "RS274NGC");
+	  logDebug("init:  DISABLE_FANUC_STYLE_SUB = %d",
+		   _setup.disable_fanuc_style_sub);
+
           // close it
           inifile.Close();
       }
@@ -1147,7 +1170,7 @@ int Interp::init()
   _setup.sequence_number = 0;   /*DOES THIS NEED TO BE AT TOP? */
 //_setup.speed set in Interp::synch
   _setup.speed_feed_mode = CANON_INDEPENDENT;
-  _setup.spindle_mode = CONSTANT_RPM;
+// setup.spindle_mode  set in interp_synch;
 //_setup.speed_override set in Interp::synch
 //_setup.spindle_turning set in Interp::synch
 //_setup.stack does not need initialization
@@ -1241,6 +1264,12 @@ int Interp::init()
   
   return INTERP_OK;
 }
+
+void Interp::set_loop_on_main_m99(bool state) {
+    // Enable/disable M99 main program endless looping
+    _setup.loop_on_main_m99 = state;
+}
+
 
 /***********************************************************************/
 
@@ -1356,7 +1385,7 @@ int Interp::open(const char *filename) //!< string: the name of the input NC-pro
          NULL), NCE_FILE_ENDED_WITH_NO_PERCENT_SIGN);
     length = strlen(line);
     if (length == (LINELEN - 1)) {   // line is too long. need to finish reading the line to recover
-      for (; fgetc(_setup.file_pointer) != '\n';);      // could look for EOF
+      for (; fgetc(_setup.file_pointer) != '\n' && !feof(_setup.file_pointer););
       ERS(NCE_COMMAND_TOO_LONG);
     }
     for (index = (length - 1);  // index set on last char
@@ -1530,10 +1559,14 @@ int Interp::_read(const char *command)  //!< may be NULL or a string to read
   block_pointer eblock = &EXECUTING_BLOCK(_setup);
 
   if ((_setup.call_state > CS_NORMAL) && 
-      (eblock->call_type > CT_NGC_OWORD_SUB)  && 
+      (eblock->call_type != CT_NGC_OWORD_SUB)  &&
+      (eblock->call_type != CT_NGC_M98_SUB)  &&
+      (eblock->call_type != CT_NONE)  &&
       ((eblock->o_type == O_call) ||
+       (eblock->o_type == M_98) ||
        (eblock->o_type == O_return) ||
-       (eblock->o_type == O_endsub))) {
+       (eblock->o_type == O_endsub) ||
+       (eblock->o_type == M_99))) {
 
       logDebug("read(): skipping read");
       _setup.line_length = 0;
@@ -1595,8 +1628,12 @@ int Interp::_read(const char *command)  //!< may be NULL or a string to read
             EXECUTING_BLOCK(_setup).o_type = 0;
 	}
     }
-  } else if (read_status == INTERP_ENDFILE);
-  else
+  } else if (read_status == INTERP_ENDFILE) {
+      // If skipping but not defining the main program, we hit EOF
+      // before finding the sub we're looking for; error out
+      CHKS((_setup.skipping_o != NULL),
+	   "Failed to find sub 'O%s' before EOF", _setup.skipping_o);
+  } else
     ERP(read_status);
   return read_status;
 }
@@ -1626,10 +1663,11 @@ int Interp::unwind_call(int status, const char *file, int line, const char *func
 	    sub->subName = 0;
 	}
 
-	for(i=0; i<INTERP_SUB_PARAMS; i++) {
-	    _setup.parameters[i+INTERP_FIRST_SUBROUTINE_PARAM] =
-		sub->saved_params[i];
-	}
+	if (sub->call_type != CT_NGC_M98_SUB) // M98:  pass #1..#30 from parent
+	    for(i=0; i<INTERP_SUB_PARAMS; i++) {
+		_setup.parameters[i+INTERP_FIRST_SUBROUTINE_PARAM] =
+		    sub->saved_params[i];
+	    }
 
 	// When called from Interp::close via Interp::reset, this one is NULL
 	if (!_setup.file_pointer) continue;
@@ -1650,7 +1688,6 @@ int Interp::unwind_call(int status, const char *file, int line, const char *func
 	_setup.sequence_number = sub->sequence_number;
 	logDebug("unwind_call: setting sequence number=%d from frame %d",
 		_setup.sequence_number,_setup.call_level);
-
     }
     // call_level == 0 here.
  
@@ -1861,31 +1898,19 @@ int Interp::save_parameters(const char *filename,      //!< name of file to writ
   int index;                    // index into _required_parameters
   int k;
 
-  if(access(filename, F_OK)==0) 
-  {
-    // rename as .bak
-    int r;
-    r = snprintf(line, sizeof(line), "%s%s", filename, RS274NGC_PARAMETER_FILE_BACKUP_SUFFIX);
-    CHKS((r >= (int)sizeof(line)), NCE_CANNOT_CREATE_BACKUP_FILE);
-    CHKS((rename(filename, line) != 0), NCE_CANNOT_CREATE_BACKUP_FILE);
-
-    // open backup for reading
-    infile = fopen(line, "r");
-    CHKS((infile == NULL), NCE_CANNOT_OPEN_BACKUP_FILE);
-  } else {
-    // it's OK if the parameter file doesn't exist yet
-    // it will now be created with a default list of parameters
-    infile = fopen("/dev/null", "r");
-  }
-  // open original for writing
-  outfile = fopen(filename, "w");
+  std::string tempfile = std::string(filename) + ".new";
+  outfile = fopen(tempfile.c_str(), "w");
   CHKS((outfile == NULL), NCE_CANNOT_OPEN_VARIABLE_FILE);
+
+  infile = fopen(filename, "r");
+  if(!infile)
+    infile = fopen("/dev/null", "r");
 
   k = 0;
   index = 0;
   required = _required_parameters[index++];
   while (feof(infile) == 0) {
-    if (fgets(line, 256, infile) == NULL) {
+    if (fgets(line, sizeof(line), infile) == NULL) {
       break;
     }
     // try for a variable-value match
@@ -1922,7 +1947,17 @@ int Interp::save_parameters(const char *filename,      //!< name of file to writ
       required = _required_parameters[index++];
     }
   }
+
+  fflush(outfile);
+  fdatasync(fileno(outfile));
   fclose(outfile);
+  std::string bakfile = std::string(filename)
+                            + RS274NGC_PARAMETER_FILE_BACKUP_SUFFIX;
+  unlink(bakfile.c_str());
+  if(link(filename, bakfile.c_str()) < 0)
+    perror("link (updating variable file)");
+  if(rename(tempfile.c_str(), filename) < 0)
+    perror("rename (updating variable file)");
   return INTERP_OK;
 }
 
@@ -1949,33 +1984,35 @@ int Interp::synch()
 {
 
   char file_name[LINELEN];
-
-  _setup.control_mode = GET_EXTERNAL_MOTION_CONTROL_MODE();
+  _setup.current_x  = GET_EXTERNAL_POSITION_X();
+  _setup.current_y  = GET_EXTERNAL_POSITION_Y();
+  _setup.current_z  = GET_EXTERNAL_POSITION_Z();
   _setup.AA_current = GET_EXTERNAL_POSITION_A();
   _setup.BB_current = GET_EXTERNAL_POSITION_B();
   _setup.CC_current = GET_EXTERNAL_POSITION_C();
+  _setup.u_current  = GET_EXTERNAL_POSITION_U();
+  _setup.v_current  = GET_EXTERNAL_POSITION_V();
+  _setup.w_current  = GET_EXTERNAL_POSITION_W();
+
+  _setup.control_mode = GET_EXTERNAL_MOTION_CONTROL_MODE();
   _setup.current_pocket = GET_EXTERNAL_TOOL_SLOT();
-  _setup.current_x = GET_EXTERNAL_POSITION_X();
-  _setup.current_y = GET_EXTERNAL_POSITION_Y();
-  _setup.current_z = GET_EXTERNAL_POSITION_Z();
-  _setup.u_current = GET_EXTERNAL_POSITION_U();
-  _setup.v_current = GET_EXTERNAL_POSITION_V();
-  _setup.w_current = GET_EXTERNAL_POSITION_W();
   _setup.feed_rate = GET_EXTERNAL_FEED_RATE();
   _setup.flood = GET_EXTERNAL_FLOOD();
   _setup.length_units = GET_EXTERNAL_LENGTH_UNIT_TYPE();
   _setup.mist = GET_EXTERNAL_MIST();
   _setup.plane = GET_EXTERNAL_PLANE();
   _setup.selected_pocket = GET_EXTERNAL_SELECTED_TOOL_SLOT();
-  _setup.speed = GET_EXTERNAL_SPEED();
-  _setup.spindle_turning = GET_EXTERNAL_SPINDLE();
   _setup.pockets_max = GET_EXTERNAL_POCKETS_MAX();
   _setup.traverse_rate = GET_EXTERNAL_TRAVERSE_RATE();
   _setup.feed_override = GET_EXTERNAL_FEED_OVERRIDE_ENABLE();
-  _setup.speed_override = GET_EXTERNAL_SPINDLE_OVERRIDE_ENABLE();
   _setup.adaptive_feed = GET_EXTERNAL_ADAPTIVE_FEED_ENABLE();
   _setup.feed_hold = GET_EXTERNAL_FEED_HOLD_ENABLE();
-
+  for (int s = 0; s < EMCMOT_MAX_SPINDLES; s++){
+	  _setup.speed[s] = GET_EXTERNAL_SPEED(s);
+	  _setup.spindle_turning[s] = GET_EXTERNAL_SPINDLE(s);
+	  _setup.speed_override[s] = GET_EXTERNAL_SPINDLE_OVERRIDE_ENABLE(s);
+	  _setup.spindle_mode[s] = CONSTANT_RPM;
+  }
   GET_EXTERNAL_PARAMETER_FILE_NAME(file_name, (LINELEN - 1));
   save_parameters(((file_name[0] ==
                              0) ?
@@ -1984,7 +2021,15 @@ int Interp::synch()
 
   load_tool_table();   /*  must set  _setup.tool_max first */
 
-  // read_inputs(&_setup); // input/probe/toolchange 
+  // read_inputs(&_setup); // input/probe/toolchange
+
+  write_settings(&_setup);
+
+#ifdef STOP_ON_SYNCH_IF_EXTERNAL_OFFSETS
+  if (GET_EXTERNAL_OFFSET_APPLIED() ) {
+    return INTERP_ERROR;
+  }
+#endif
 
   return INTERP_OK;
 }
@@ -2419,17 +2464,9 @@ int Interp::enter_remap(void)
     CONTROLLING_BLOCK(_setup).executing_remap = NULL;
 
     // remember the line where remap was discovered
-    if (_setup.remap_level == 1) {
-	logRemap("enter_remap: toplevel - saved_line_number=%d",_setup.sequence_number);
-	CONTROLLING_BLOCK(_setup).saved_line_number  =
-	    _setup.sequence_number;
-    } else {
-	logRemap("enter_remap into %d - saved_line_number=%d",
-		 _setup.remap_level,
-		 EXECUTING_BLOCK(_setup).saved_line_number);
-	CONTROLLING_BLOCK(_setup).saved_line_number  =
-	    EXECUTING_BLOCK(_setup).saved_line_number;
-    }
+    logRemap("enter_remap into %d - saved_line_number=%d",
+	     _setup.remap_level, _setup.sequence_number);
+    CONTROLLING_BLOCK(_setup).saved_line_number = _setup.sequence_number;
     _setup.sequence_number = 0;
     return INTERP_OK;
 }
@@ -2437,19 +2474,10 @@ int Interp::enter_remap(void)
 int Interp::leave_remap(void)
 {
     // restore the line number where remap was found
-    if (_setup.remap_level == 1) {
-	// dropping to top level, so pass onto _setup
-	_setup.sequence_number = CONTROLLING_BLOCK(_setup).saved_line_number;
-	logRemap("leave_remap into toplevel, restoring seqno=%d",_setup.sequence_number);
+    logRemap("leave_remap from %d propagate saved_line_number=%d",
+	     _setup.remap_level, CONTROLLING_BLOCK(_setup).saved_line_number);
 
-    } else {
-	// just dropping a nesting level
-	EXECUTING_BLOCK(_setup).saved_line_number =
-	    CONTROLLING_BLOCK(_setup).saved_line_number ;
-	logRemap("leave_remap from %d propagate saved_line_number=%d",
-		 _setup.remap_level,
-		 EXECUTING_BLOCK(_setup).saved_line_number);
-    }
+    _setup.sequence_number = CONTROLLING_BLOCK(_setup).saved_line_number;
     _setup.blocks[_setup.remap_level].executing_remap = NULL;
     _setup.remap_level--; // drop one nesting level
     if (_setup.remap_level < 0) {
@@ -2457,106 +2485,6 @@ int Interp::leave_remap(void)
     }
     return INTERP_OK;
 }
-
-
-void Interp::program_end_cleanup(setup_pointer settings) {
-    int index;
-
-    settings->current_x += settings->origin_offset_x;
-    settings->current_y += settings->origin_offset_y;
-    settings->current_z += settings->origin_offset_z;
-    settings->AA_current += settings->AA_origin_offset;
-    settings->BB_current += settings->BB_origin_offset;
-    settings->CC_current += settings->CC_origin_offset;
-    settings->u_current += settings->u_origin_offset;
-    settings->v_current += settings->v_origin_offset;
-    settings->w_current += settings->w_origin_offset;
-    rotate(&settings->current_x, &settings->current_y, settings->rotation_xy);
-
-    settings->origin_index = 1;
-    settings->parameters[5220] = 1.0;
-    settings->origin_offset_x = USER_TO_PROGRAM_LEN(settings->parameters[5221]);
-    settings->origin_offset_y = USER_TO_PROGRAM_LEN(settings->parameters[5222]);
-    settings->origin_offset_z = USER_TO_PROGRAM_LEN(settings->parameters[5223]);
-    settings->AA_origin_offset = USER_TO_PROGRAM_ANG(settings->parameters[5224]);
-    settings->BB_origin_offset = USER_TO_PROGRAM_ANG(settings->parameters[5225]);
-    settings->CC_origin_offset = USER_TO_PROGRAM_ANG(settings->parameters[5226]);
-    settings->u_origin_offset = USER_TO_PROGRAM_LEN(settings->parameters[5227]);
-    settings->v_origin_offset = USER_TO_PROGRAM_LEN(settings->parameters[5228]);
-    settings->w_origin_offset = USER_TO_PROGRAM_LEN(settings->parameters[5229]);
-    settings->rotation_xy = settings->parameters[5230];
-
-    rotate(&settings->current_x, &settings->current_y, -settings->rotation_xy);
-    settings->current_x -= settings->origin_offset_x;
-    settings->current_y -= settings->origin_offset_y;
-    settings->current_z -= settings->origin_offset_z;
-    settings->AA_current -= settings->AA_origin_offset;
-    settings->BB_current -= settings->BB_origin_offset;
-    settings->CC_current -= settings->CC_origin_offset;
-    settings->u_current -= settings->u_origin_offset;
-    settings->v_current -= settings->v_origin_offset;
-    settings->w_current -= settings->w_origin_offset;
-
-    SET_G5X_OFFSET(settings->origin_index,
-                   settings->origin_offset_x,
-                   settings->origin_offset_y,
-                   settings->origin_offset_z,
-                   settings->AA_origin_offset,
-                   settings->BB_origin_offset,
-                   settings->CC_origin_offset,
-                   settings->u_origin_offset,
-                   settings->v_origin_offset,
-                   settings->w_origin_offset);
-    SET_XY_ROTATION(settings->rotation_xy);
-
-    if (settings->plane != CANON_PLANE_XY) {
-        SELECT_PLANE(CANON_PLANE_XY);
-        settings->plane = CANON_PLANE_XY;
-    }
-
-    settings->distance_mode = MODE_ABSOLUTE;
-
-    settings->feed_mode = UNITS_PER_MINUTE;
-    SET_FEED_MODE(0);
-    settings->feed_rate = 0;
-    SET_FEED_RATE(0);
-
-    if (!settings->feed_override) {
-        ENABLE_FEED_OVERRIDE();
-        settings->feed_override = true;
-    }
-    if (!settings->speed_override) {
-        ENABLE_SPEED_OVERRIDE();
-        settings->speed_override = true;
-    }
-
-    settings->cutter_comp_side = false;
-    settings->cutter_comp_firstmove = true;
-
-    STOP_SPINDLE_TURNING();
-    settings->spindle_turning = CANON_STOPPED;
-
-    /* turn off FPR */
-    SET_SPINDLE_MODE(0);
-
-    settings->motion_mode = G_1;
-
-    if (settings->mist) {
-        MIST_OFF();
-        settings->mist = false;
-    }
-    if (settings->flood) {
-        FLOOD_OFF();
-        settings->flood = false;
-    }
-
-/*10*/
-    if (settings->disable_g92_persistence)
-	// Clear G92/G52 offset
-	for (index=5210; index<=5219; index++)
-	    settings->parameters[index] = 0;
-}
-
 
 int Interp::on_abort(int reason, const char *message)
 {
@@ -2570,9 +2498,6 @@ int Interp::on_abort(int reason, const char *message)
     _setup.toolchange_flag = false;
     _setup.probe_flag = false;
     _setup.input_flag = false;
-
-    logDebug("interp: %s simulating M30\n", __func__);
-    program_end_cleanup(&_setup);
 
     if (_setup.on_abort_command == NULL)
 	return -1;
@@ -2650,11 +2575,15 @@ const char *strstore(const char *s)
 
 context_struct::context_struct()
 : position(0), sequence_number(0), filename(""), subName(""),
-context_status(0), call_type(0)
-
+  m98_loop_counter(-1), context_status(0), call_type(0)
 {
     memset(saved_params, 0, sizeof(saved_params));
     memset(saved_g_codes, 0, sizeof(saved_g_codes));
     memset(saved_m_codes, 0, sizeof(saved_m_codes));
     memset(saved_settings, 0, sizeof(saved_settings));
+}
+
+void context_struct::clear()
+{
+    new (this) context_struct();
 }

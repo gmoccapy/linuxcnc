@@ -34,9 +34,9 @@ linksp Zpos-fb <= ppmc.0.encoder.02.position
 #linksp Apos-fb <= ppmc.0.encoder.03.position
 
 # get feedback scaling from ini file
-setp ppmc.0.encoder.00.scale [AXIS_0]INPUT_SCALE
-setp ppmc.0.encoder.01.scale [AXIS_1]INPUT_SCALE
-setp ppmc.0.encoder.02.scale [AXIS_2]INPUT_SCALE
+setp ppmc.0.encoder.00.scale [JOINT_0]INPUT_SCALE
+setp ppmc.0.encoder.01.scale [JOINT_1]INPUT_SCALE
+setp ppmc.0.encoder.02.scale [JOINT_2]INPUT_SCALE
 setp ppmc.0.encoder.03.scale 6912
 
 # connect PID output signals to PWM generators
@@ -50,9 +50,9 @@ linksp Yenable => ppmc.0.pwm.01.enable
 linksp Zenable => ppmc.0.pwm.02.enable
 
 # set output scaling from ini file
-setp ppmc.0.pwm.00.scale [AXIS_0]OUTPUT_SCALE
-setp ppmc.0.pwm.01.scale [AXIS_1]OUTPUT_SCALE
-setp ppmc.0.pwm.02.scale [AXIS_2]OUTPUT_SCALE
+setp ppmc.0.pwm.00.scale [JOINT_0]OUTPUT_SCALE
+setp ppmc.0.pwm.01.scale [JOINT_1]OUTPUT_SCALE
+setp ppmc.0.pwm.02.scale [JOINT_2]OUTPUT_SCALE
 
 # add a couple of tuning test links
 # if these are useful will want to add them to the other axes as well
@@ -65,18 +65,18 @@ newsig spindle-index-en bit
 linksp spindle-index-en => ppmc.0.encoder.03.index-enable
 
 # hook up motion controller's sync output
-linkps motion.spindle-index-enable => spindle-index-en
+linkps spindle.0.index-enable => spindle-index-en
 
 # report rev count to motion controller
 newsig spindle-pos float
 linkps ppmc.0.encoder.03.position => spindle-pos
-linksp spindle-pos => motion.spindle-revs
+linksp spindle-pos => spindle.0.revs
 
 # set up 4th PWM generator as a spindle speed control
 newsig spindle-speed float
 newsig spindle-pwm-cmd float
 newsig spindle-pwm-filt float
-linkps motion.spindle-speed-out => spindle-speed
+linkps spindle.0.speed-out => spindle-speed
 linksp spindle-speed => mult2.1.in0
 setp   mult2.1.in1 0.0009018
 linkps mult2.1.out => spindle-pwm-cmd

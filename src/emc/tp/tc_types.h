@@ -9,8 +9,6 @@
 * System: Linux
 *    
 * Copyright (c) 2004 All rights reserved.
-*
-* Last change:
 ********************************************************************/
 #ifndef TC_TYPES_H
 #define TC_TYPES_H
@@ -106,6 +104,7 @@ typedef struct {
     PmCartesian abc;
     PmCartesian uvw;
     double reversal_target;
+    double reversal_scale;
     double spindlerevs_at_reversal;
     RIGIDTAP_STATE state;
 } PmRigidTap;

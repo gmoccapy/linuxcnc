@@ -19,7 +19,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 function usage () {
   cat <<EOF
 
@@ -29,6 +29,8 @@ Usage:
 
 Varnames supported:
          LINUXCNCVERSION
+         LINUXCNC_AUX_GLADEVCP
+         LINUXCNC_AUX_EXAMPLES
          REALTIME
          RTS
          HALLIB_DIR
@@ -40,6 +42,8 @@ exit 1
 
 function show_all () {
   echo "LINUXCNCVERSION=@EMC2VERSION@
+LINUXCNC_AUX_GLADEVCP=@LINUXCNC_AUX_GLADEVCP@
+LINUXCNC_AUX_EXAMPLES=@LINUXCNC_AUX_EXAMPLES@
 REALTIME=@REALTIME@
 RTS=@RTS@
 HALLIB_DIR=@HALLIB_DIR@"
@@ -48,6 +52,8 @@ HALLIB_DIR=@HALLIB_DIR@"
 function show_item () {
   case $1 in
     LINUXCNCVERSION) echo @EMC2VERSION@;;
+    LINUXCNC_AUX_GLADEVCP) echo @LINUXCNC_AUX_GLADEVCP@;;
+    LINUXCNC_AUX_EXAMPLES) echo @LINUXCNC_AUX_EXAMPLES@;;
     REALTIME) echo @REALTIME@;;
     RTS) echo @RTS@;;
     HALLIB_DIR) echo @HALLIB_DIR@;;

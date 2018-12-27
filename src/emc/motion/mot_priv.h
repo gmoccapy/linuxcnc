@@ -7,9 +7,6 @@
 * System: Linux
 *    
 * Copyright (c) 2004 All rights reserved.
-*
-* Last change:
-*
 ********************************************************************/
 #ifndef MOT_PRIV_H
 #define MOT_PRIV_H
@@ -34,8 +31,51 @@
 #include "../motion/motion.h"
 
 typedef struct {
+    // creating a lot of pins for spindle control to be very flexible
+    // the user needs only a subset of these
+
+    // simplest way of spindle control (output start/stop)
+    hal_bit_t *spindle_on;  /* spindle spin output */
+
+    // same thing for 2 directions
+    hal_bit_t *spindle_forward; /* spindle spin-forward output */
+    hal_bit_t *spindle_reverse; /* spindle spin-reverse output */
+
+    // simple velocity control (as long as the output is active the spindle
+    //                          should accelerate/decelerate
+    hal_bit_t *spindle_incr_speed;  /* spindle spin-increase output */
+    hal_bit_t *spindle_decr_speed;  /* spindle spin-decrease output */
+
+    // simple output for brake
+    hal_bit_t *spindle_brake;   /* spindle brake output */
+
+    // output of a prescribed speed (to hook-up to a velocity controller)
+    hal_float_t *spindle_speed_out; /* spindle speed output */
+    hal_float_t *spindle_speed_out_rps; /* spindle speed output */
+    hal_float_t *spindle_speed_out_abs; /* spindle speed output absolute*/
+    hal_float_t *spindle_speed_out_rps_abs; /* spindle speed output absolute*/
+    hal_float_t *spindle_speed_cmd_rps; /* spindle speed command without SO applied */
+    hal_float_t *spindle_speed_in;  /* spindle speed measured */
+    hal_bit_t *spindle_index_enable; /* spindle inde I/O pin */
+    hal_bit_t *spindle_inhibit;
+    hal_float_t *spindle_revs;
+    hal_bit_t *spindle_is_atspeed;
+    hal_bit_t *spindle_amp_fault;
+
+    // spindle orient
+    hal_float_t *spindle_orient_angle;  /* out: desired spindle angle, degrees */
+    hal_s32_t   *spindle_orient_mode;   /* out: 0: least travel; 1: cw; 2: ccw */
+    hal_bit_t   *spindle_orient;    /* out: signal orient in progress */
+    hal_bit_t   *spindle_locked;    /* out: signal orient complete, spindle locked */
+    hal_bit_t   *spindle_is_oriented;   /* in: orientation completed */
+    hal_s32_t   *spindle_orient_fault;  /* in: error code of failed operation */
+
+} spindle_hal_t;
+
+typedef struct {
     hal_float_t *coarse_pos_cmd;/* RPI: commanded position, w/o comp */
     hal_float_t *joint_vel_cmd;	/* RPI: commanded velocity, w/o comp */
+    hal_float_t *joint_acc_cmd;	/* RPI: commanded acceleration, w/o comp */
     hal_float_t *backlash_corr;	/* RPI: correction for backlash */
     hal_float_t *backlash_filt;	/* RPI: filtered backlash correction */
     hal_float_t *backlash_vel;	/* RPI: backlash speed variable */
@@ -50,8 +90,8 @@ typedef struct {
     hal_float_t *free_pos_cmd;	/* RPI: free traj planner pos cmd */
     hal_float_t *free_vel_lim;	/* RPI: free traj planner vel limit */
     hal_bit_t *free_tp_enable;	/* RPI: free traj planner is running */
-    hal_bit_t *kb_jog_active;   /* RPI: executing keyboard jog */
-    hal_bit_t *wheel_jog_active;/* RPI: executing handwheel jog */
+    hal_bit_t *kb_jjog_active;   /* RPI: executing keyboard jog */
+    hal_bit_t *wheel_jjog_active;/* RPI: executing handwheel jog */
 
     hal_bit_t *active;		/* RPI: joint is active, whatever that means */
     hal_bit_t *in_position;	/* RPI: joint is in position */
@@ -74,28 +114,48 @@ typedef struct {
     hal_bit_t *unlock;          /* WPI: command that axis should unlock for rotation */
     hal_bit_t *is_unlocked;     /* RPI: axis is currently unlocked */
 
-    hal_s32_t *jog_counts;	/* WPI: jogwheel position input */
-    hal_bit_t *jog_enable;	/* RPI: enable jogwheel */
-    hal_float_t *jog_scale;	/* RPI: distance to jog on each count */
-    hal_bit_t *jog_vel_mode;	/* RPI: true for "velocity mode" jogwheel */
+    hal_s32_t   *jjog_counts;	/* WPI: jogwheel position input */
+    hal_bit_t   *jjog_enable;	/* RPI: enable jogwheel */
+    hal_float_t *jjog_scale;	/* RPI: distance to jog on each count */
+    hal_float_t *jjog_accel_fraction;	/* RPI: to limit wheel jog accel */
+    hal_bit_t   *jjog_vel_mode;	/* RPI: true for "velocity mode" jogwheel */
 
 } joint_hal_t;
+
+typedef struct {
+    hal_float_t *pos_cmd;        /* RPI: commanded position */
+    hal_float_t *teleop_vel_cmd; /* RPI: commanded velocity */
+    hal_float_t *teleop_pos_cmd; /* RPI: teleop traj planner pos cmd */
+    hal_float_t *teleop_vel_lim; /* RPI: teleop traj planner vel limit */
+    hal_bit_t   *teleop_tp_enable; /* RPI: teleop traj planner is running */
+
+    hal_s32_t   *ajog_counts;	/* WPI: jogwheel position input */
+    hal_bit_t   *ajog_enable;	/* RPI: enable jogwheel */
+    hal_float_t *ajog_scale;	/* RPI: distance to jog on each count */
+    hal_float_t *ajog_accel_fraction;	/* RPI: to limit wheel jog accel */
+    hal_bit_t   *ajog_vel_mode;	/* RPI: true for "velocity mode" jogwheel */
+    hal_bit_t   *kb_ajog_active;   /* RPI: executing keyboard jog */
+    hal_bit_t   *wheel_ajog_active;/* RPI: executing handwheel jog */
+
+    hal_bit_t   *eoffset_enable;
+    hal_bit_t   *eoffset_clear;
+    hal_s32_t   *eoffset_counts;
+    hal_float_t *eoffset_scale;
+    hal_float_t *external_offset;
+    hal_float_t *external_offset_requested;
+} axis_hal_t;
 
 /* machine data */
 
 typedef struct {
     hal_bit_t *probe_input;	/* RPI: probe switch input */
     hal_bit_t *enable;		/* RPI: motion inhibit input */
-    hal_bit_t *spindle_index_enable;
-    hal_bit_t *spindle_is_atspeed;
-    hal_float_t *spindle_revs;
-    hal_bit_t *spindle_inhibit;	/* RPI: set TRUE to stop spindle (non maskable)*/
     hal_float_t *adaptive_feed;	/* RPI: adaptive feedrate, 0.0 to 1.0 */
     hal_bit_t *feed_hold;	/* RPI: set TRUE to stop motion maskable with g53 P1*/
     hal_bit_t *feed_inhibit;	/* RPI: set TRUE to stop motion (non maskable)*/
+    hal_bit_t *homing_inhibit;	/* RPI: set TRUE to inhibit homing*/
     hal_bit_t *motion_enabled;	/* RPI: motion enable for all joints */
     hal_bit_t *in_position;	/* RPI: all joints are in position */
-//    hal_bit_t *inpos_output;	/* WPI: all joints are in position (used to power down steppers for example) */
     hal_bit_t *coord_mode;	/* RPA: TRUE if coord, FALSE if free */
     hal_bit_t *teleop_mode;	/* RPA: TRUE if teleop mode */
     hal_bit_t *coord_error;	/* RPA: TRUE if coord mode error */
@@ -121,41 +181,6 @@ typedef struct {
     hal_float_t *analog_input[EMCMOT_MAX_AIO]; /* RPI array: input pins for analog Inputs */
     hal_float_t *analog_output[EMCMOT_MAX_AIO]; /* RPI array: output pins for analog Inputs */
 
-
-    // creating a lot of pins for spindle control to be very flexible
-    // the user needs only a subset of these
-
-    // simplest way of spindle control (output start/stop)
-    hal_bit_t *spindle_on;	/* spindle spin output */
-
-    // same thing for 2 directions
-    hal_bit_t *spindle_forward;	/* spindle spin-forward output */
-    hal_bit_t *spindle_reverse;	/* spindle spin-reverse output */
-
-    // simple velocity control (as long as the output is active the spindle
-    //                          should accelerate/decelerate
-    hal_bit_t *spindle_incr_speed;	/* spindle spin-increase output */
-    hal_bit_t *spindle_decr_speed;	/* spindle spin-decrease output */
-
-    // simple output for brake
-    hal_bit_t *spindle_brake;	/* spindle brake output */
-
-    // output of a prescribed speed (to hook-up to a velocity controller)
-    hal_float_t *spindle_speed_out;	/* spindle speed output */
-    hal_float_t *spindle_speed_out_rps;	/* spindle speed output */
-    hal_float_t *spindle_speed_out_abs;	/* spindle speed output absolute*/
-    hal_float_t *spindle_speed_out_rps_abs;	/* spindle speed output absolute*/
-    hal_float_t *spindle_speed_cmd_rps;	/* spindle speed command without SO applied */
-    hal_float_t *spindle_speed_in;	/* spindle speed measured */
-    
-    // spindle orient
-    hal_float_t *spindle_orient_angle;	/* out: desired spindle angle, degrees */
-    hal_s32_t   *spindle_orient_mode;	/* out: 0: least travel; 1: cw; 2: ccw */
-    hal_bit_t   *spindle_orient;	/* out: signal orient in progress */
-    hal_bit_t   *spindle_locked;	/* out: signal orient complete, spindle locked */
-    hal_bit_t   *spindle_is_oriented;	/* in: orientation completed */
-    hal_s32_t   *spindle_orient_fault;	/* in: error code of failed operation */
-
     // FIXME - debug only, remove later
     hal_float_t traj_pos_out;	/* RPA: traj internals, for debugging */
     hal_float_t traj_vel_out;	/* RPA: traj internals, for debugging */
@@ -165,8 +190,8 @@ typedef struct {
     hal_float_t tc_acc[4];	/* RPA: traj internals, for debugging */
 
     // realtime overrun detection
-    hal_u32_t last_period;	/* param: last period in clocks */
-    hal_float_t last_period_ns;	/* param: last period in nanoseconds */
+    hal_u32_t   *last_period;	/* pin: last period in clocks */
+    hal_float_t *last_period_ns;	/* pin: last period in nanoseconds */
 
     hal_float_t *tooloffset_x;
     hal_float_t *tooloffset_y;
@@ -178,49 +203,34 @@ typedef struct {
     hal_float_t *tooloffset_v;
     hal_float_t *tooloffset_w;
 
+    spindle_hal_t spindle[EMCMOT_MAX_SPINDLES];     /*spindle data */
     joint_hal_t joint[EMCMOT_MAX_JOINTS];	/* data for each joint */
+    axis_hal_t axis[EMCMOT_MAX_AXIS];	        /* data for each axis */
 
+    hal_bit_t   *eoffset_active; /* ext offsets active */
+    hal_bit_t   *eoffset_limited; /* ext offsets exceed limit */
 } emcmot_hal_data_t;
 
 /***********************************************************************
 *                   GLOBAL VARIABLE DECLARATIONS                       *
 ************************************************************************/
 
-/* HAL component ID for motion module */
-extern int mot_comp_id;
-
-/* userdefined number of joints. default is EMCMOT_MAX_JOINTS(=8), 
-   but can be altered at motmod insmod time */
-extern int num_joints;
-
-/* userdefined number of digital IO. default is 4. (EMCMOT_MAX_DIO=64), 
-   but can be altered at motmod insmod time */
-extern int num_dio;
-
-/* userdefined number of analog IO. default is 4. (EMCMOT_MAX_AIO=16), 
-   but can be altered at motmod insmod time */
-extern int num_aio;
-
 /* pointer to emcmot_hal_data_t struct in HAL shmem, with all HAL data */
 extern emcmot_hal_data_t *emcmot_hal_data;
 
 /* pointer to array of joint structs with all joint data */
 /* the actual array may be in shared memory or in kernel space, as
-   determined by the init code in motion.c
-*/
+   determined by the init code in motion.c */
 extern emcmot_joint_t *joints;
 
+/* pointer to array of axis structs with all axis data */
+extern emcmot_axis_t *axes;
+
 /* Variable defs */
-extern int kinType;
-extern int rehomeAll;
-extern int DEBUG_MOTION;
-extern int EMCMOT_NO_FORWARD_KINEMATICS;
 extern KINEMATICS_FORWARD_FLAGS fflags;
 extern KINEMATICS_INVERSE_FLAGS iflags;
-/* these variables have the servo cycle time and 1/cycle time */
-extern double servo_period;
+/* these variable have the 1/servo cycle time */
 extern double servo_freq;
-
 
 /* Struct pointers */
 extern struct emcmot_struct_t *emcmotStruct;
@@ -228,7 +238,6 @@ extern struct emcmot_command_t *emcmotCommand;
 extern struct emcmot_status_t *emcmotStatus;
 extern struct emcmot_config_t *emcmotConfig;
 extern struct emcmot_debug_t *emcmotDebug;
-extern struct emcmot_internal_t *emcmotInternal;
 extern struct emcmot_error_t *emcmotError;
 
 /***********************************************************************
@@ -251,6 +260,18 @@ extern int emcmotGetRotaryIsUnlocked(int axis);
 extern void do_homing_sequence(void);
 extern void do_homing(void);
 
+
+//
+// Try to change the Motion mode to Teleop.
+//
+// This function can be called at any time.  Returns without changing
+// mode if Teleop is not currently allowed.  This code doesn't actually
+// make the transition, it just sets a flag requesting the transition.
+// The real transition to Teleop mode is done in emcmotController().
+//
+void switch_to_teleop_mode(void);
+
+
 /* loops through the active joints and checks if any are not homed */
 extern int checkAllHomed(void);
 /* recalculates jog limits */
@@ -260,6 +281,9 @@ extern void clearHomes(int joint_num);
 
 extern void emcmot_config_change(void);
 extern void reportError(const char *fmt, ...) __attribute((format(printf,1,2))); /* Use the rtapi_print call */
+
+int joint_is_lockable(int joint_num);
+
 
  /* rtapi_get_time() returns a nanosecond value. In time, we should use a u64
     value for all calcs and only do the conversion to seconds when it is
@@ -343,4 +367,6 @@ extern void reportError(const char *fmt, ...) __attribute((format(printf,1,2)));
 #if defined(__KERNEL__)
 #define HAVE_CPU_KHZ
 #endif
+
+#define EOFFSET_EPSILON  1e-8
 #endif /* MOT_PRIV_H */

@@ -13,7 +13,7 @@
  *
  *    You should have received a copy of the GNU General Public License
  *    along with this program; if not, write to the Free Software
- *    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 // Support for embedding Python in the RS274NGC interpreter
 // with access to Interp and Canon
@@ -33,6 +33,7 @@
 // this is actually a bug in libgl1-mesa-dri and it looks
 // it has been fixed in mesa - 7.10.1-0ubuntu2
 
+#define BOOST_PYTHON_MAX_ARITY 4
 #include "python_plugin.hh"
 #include "interp_python.hh"
 #include <boost/python/extract.hpp>
@@ -147,6 +148,8 @@ int Interp::pycall(setup_pointer settings,
     case PY_FINISH_EPILOG:
 	logPy("pycall: call generator.next()" );
 	
+	// check inputs here, since _read() may not be called
+	read_inputs(&_setup);
 	// handler continuation if a generator was used
 	try {
 	    retval = frame->pystuff.impl->generator_next();

@@ -13,7 +13,7 @@
 #
 #   You should have received a copy of the GNU General Public License
 #   along with this program; if not, write to the Free Software
-#   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 import hal
 import gtk
@@ -143,7 +143,9 @@ class HandlerClass:
         self.gscreen.init_show_windows()
         self.gscreen.init_dynamic_tabs()
         self.gscreen.init_embeded_terminal()
-        self.gscreen.change_theme(self.data.theme_name)
+        #self.gscreen.change_theme(self.data.theme_name)
+        settings = gtk.settings_get_default()
+        settings.set_string_property("gtk-theme-name", 'Link to gaxis_theme', "")
         self.gscreen.statusbar_id = self.widgets.statusbar1.get_context_id("Statusbar1")
         self.gscreen.homed_status_message = self.widgets.statusbar1.push(1,"Ready For Homing")
         for num,i in enumerate(self.data.jog_increments):

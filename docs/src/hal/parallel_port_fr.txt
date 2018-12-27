@@ -3,7 +3,7 @@
 
 = Port parallèle
 
-[[cha:Parport]] (((Pilote parport)))
+[[cha:Parport]]
 
 == Parport
 
@@ -112,7 +112,7 @@ moins une adresse, c'est une erreur.
 
 .Diagrammes blocs de parport
 
-image::images/parport-block-diag.png[]
+image::images/parport-block-diag.png[alt="Diagrammes blocs de parport"]
 
 === Pins
 

@@ -1,4 +1,4 @@
-.PHONY: docs docsclean checkref checkref_en checkref_es checkref_fr
+.PHONY: docs docsclean checkref checkref_en checkref_es checkref_fr checkref_vi
 .PHONY: pdfdocs htmldocs install-doc install-doc-pdf install-doc-html
 
 DOC_DIR=../docs
@@ -35,7 +35,9 @@ DOC_SRCS_EN := \
 	code/style-guide.txt \
 	code/nml-messages.txt \
 	code/rs274.txt \
+	code/adding-configs.txt \
 	code/contributing-to-linuxcnc.txt \
+	code/building-linuxcnc.txt \
 	common/emc-history.txt \
 	common/glossary.txt \
 	common/gpld-copyright.txt \
@@ -54,6 +56,7 @@ DOC_SRCS_EN := \
 	config/stepper-quickstart.txt \
 	drivers/ax5214h.txt \
 	drivers/vfs11.txt \
+	drivers/mitsub_vfd.txt \
 	drivers/gm.txt \
 	drivers/gs2.txt \
 	drivers/hostmot2.txt \
@@ -63,7 +66,7 @@ DOC_SRCS_EN := \
 	drivers/pico-ppmc.txt \
 	drivers/pluto-p.txt \
 	drivers/servo-to-go.txt \
-	drivers/shuttlexpress.txt \
+	drivers/shuttle.txt \
 	examples/gcode.txt \
 	examples/gs2-example.txt \
 	examples/mpg.txt \
@@ -92,12 +95,11 @@ DOC_SRCS_EN := \
 	gui/panelui.txt \
 	gui/halui.txt \
 	gui/image-to-gcode.txt \
-	gui/keystick.txt \
-	gui/mini.txt \
 	gui/ngcgui.txt \
 	gui/tklinuxcnc.txt \
 	gui/tooledit.txt \
 	gui/touchy.txt \
+	gui/GStat.txt \
 	gui/vismach.txt \
 	hal/basic-hal.txt \
 	hal/canonical-devices.txt \
@@ -118,6 +120,9 @@ DOC_SRCS_EN := \
 	hal/tutorial.txt \
 	hal/twopass.txt \
 	install/latency-test.txt \
+	integrator/steppers.txt \
+	integrator/stepper-timing.txt \
+	integrator/wiring.txt \
 	ladder/classic-ladder.txt \
 	ladder/ladder-examples.txt \
 	ladder/ladder-intro.txt \
@@ -125,6 +130,8 @@ DOC_SRCS_EN := \
 	motion/kinematics.txt \
 	motion/pid-theory.txt \
 	motion/tweaking-steppers.txt \
+	motion/5-axis-kinematics.txt \
+	motion/external-offsets.txt \
 	remap/remap.txt \
 	user/starting-linuxcnc.txt \
 	user/user-concepts.txt \
@@ -172,8 +179,6 @@ DOC_SRCS_FR := \
 	gui/axis_fr.txt \
 	gui/gladevcp_fr.txt \
 	gui/image-to-gcode_fr.txt \
-	gui/keystick_fr.txt \
-	gui/mini_fr.txt \
 	gui/ngcgui_fr.txt \
 	gui/tklinuxcnc_fr.txt \
 	gui/tooledit_fr.txt\
@@ -236,7 +241,8 @@ DOC_TARGETS_XML_FR := $(filter %_fr.xml, $(DOC_TARGETS_XML))
 DOC_TARGETS_XML_EN := $(filter-out $(DOC_TARGETS_XML_ES), $(filter-out $(DOC_TARGETS_XML_FR), $(DOC_TARGETS_XML)) )
 DOC_TARGETS_HTML_ES := $(filter %_es.html, $(DOC_TARGETS_HTML))
 DOC_TARGETS_HTML_FR := $(filter %_fr.html, $(DOC_TARGETS_HTML))
-DOC_TARGETS_HTML_EN := $(filter-out $(DOC_TARGETS_HTML_ES), $(filter-out $(DOC_TARGETS_HTML_FR), $(DOC_TARGETS_HTML)) )
+DOC_TARGETS_HTML_VI := $(filter %_vi.html, $(DOC_TARGETS_HTML))
+DOC_TARGETS_HTML_EN := $(filter-out $(DOC_TARGETS_HTML_ES), $(filter-out $(DOC_TARGETS_HTML_FR), $(filter-out $(DOC_TARGETS_HTML_VI), $(DOC_TARGETS_HTML))) )
 
 MAN_HTML_TARGETS = $(patsubst $(DOC_DIR)/man/%, $(DOC_DIR)/html/man/%.html, $(MAN_SRCS))
 
@@ -245,6 +251,7 @@ PDF_TARGETS_EN := $(addprefix $(DOC_DIR)/, \
 	LinuxCNC_Documentation.pdf \
 	LinuxCNC_Developer_Manual.pdf \
 	LinuxCNC_Manual_Pages.pdf \
+	LinuxCNC_Integrator.pdf \
 	)
 
 PDF_TARGETS_FR := $(addprefix $(DOC_DIR)/, \
@@ -313,7 +320,7 @@ copy_asciidoc_files:
 	cp -f /etc/asciidoc/stylesheets/*.css $(DOC_DIR)/html
 	cp -f /etc/asciidoc/javascripts/*.js $(DOC_DIR)/html
 
-checkref: checkref_en checkref_fr checkref_es
+checkref: checkref_en checkref_fr checkref_es checkref_vi
 
 checkref_en: $(DOC_TARGETS_HTML_EN) $(DOC_DIR)/html/index.html $(DOC_DIR)/html/gcode.html .htmldoc-stamp
 	@$(DOC_SRCDIR)/checkref English $^
@@ -323,6 +330,9 @@ checkref_fr: $(DOC_TARGETS_HTML_FR) $(DOC_DIR)/html/gcode_fr.html .htmldoc-stamp
 
 checkref_es: $(DOC_TARGETS_HTML_ES) .htmldoc-stamp
 	@$(DOC_SRCDIR)/checkref Spanish $^
+
+checkref_vi: $(DOC_TARGETS_HTML_VI) $(DOC_DIR)/html/gcode_vi.html .htmldoc-stamp
+	@$(DOC_SRCDIR)/checkref Vietnamese $^
 
 MAN_SRCS_NOSO = $(patsubst $(DOC_DIR)/man/%,%, \
 			$(shell grep -L '^\.so ' $(sort $(MAN_SRCS))))
@@ -344,6 +354,8 @@ $(DOC_DIR)/LinuxCNC_Getting_Started_es.pdf: $(DOC_SRCDIR)/Master_Getting_Started
 $(DOC_DIR)/LinuxCNC_Getting_Started_fr.pdf: $(DOC_SRCDIR)/Master_Getting_Started_fr.pdf
 	@ln -f $< $@
 $(DOC_DIR)/LinuxCNC_Documentation.pdf: $(DOC_SRCDIR)/Master_Documentation.pdf
+	@ln -f $< $@
+$(DOC_DIR)/LinuxCNC_Integrator.pdf: $(DOC_SRCDIR)/Master_Integrator.pdf
 	@ln -f $< $@
 $(DOC_DIR)/LinuxCNC_Documentation_es.pdf: $(DOC_SRCDIR)/Master_Documentation_es.pdf
 	@ln -f $< $@
@@ -428,14 +440,7 @@ depends/%.d: $(DOC_SRCDIR)/%.txt $(DOC_SRCDIR)/asciideps
 	$(Q)$(DOC_SRCDIR)/asciideps $< > $@.tmp
 	@mv $@.tmp $@
 
-objects/xref_es.xml: $(DOC_TARGETS_XML_ES) $(DOC_SRCDIR)/xref.py
-	(cd objects; ../../docs/src/xref.py $(filter %.xml, $(patsubst objects/%,%,$^))) > $@
-objects/xref_fr.xml: $(DOC_TARGETS_XML_FR) $(DOC_SRCDIR)/xref.py
-	(cd objects; ../../docs/src/xref.py $(filter %.xml, $(patsubst objects/%,%,$^))) > $@
-objects/xref.xml: $(DOC_TARGETS_XML_EN) $(DOC_SRCDIR)/xref.py
-	(cd objects; ../../docs/src/xref.py $(filter %.xml, $(patsubst objects/%,%,$^))) > $@
-
-objects/%.links-stamp: $(DOC_SRCDIR)/%.txt
+objects/%.links-stamp: $(DOC_SRCDIR)/%.txt $(DOC_SRCDIR)/links.xslt
 	@mkdir -p `dirname $@`
 	asciidoc -f $(DOC_SRCDIR)/attribute-colon.conf -a "scriptdir=$(DOC_SRCDIR)/" -d book -o- -b docbook $< | xsltproc $(DOC_SRCDIR)/links.xslt - > $@.tmp || (X=$$?; rm $@; exit $$X)
 	sh move-if-change $@.tmp $(patsubst %-stamp,%,$@)
@@ -548,6 +553,7 @@ docclean:
 	-rm -f $(DOC_DIR)/LinuxCNC_Getting_Started_es.pdf
 	-rm -f $(DOC_DIR)/LinuxCNC_Getting_Started_fr.pdf
 	-rm -f $(DOC_DIR)/LinuxCNC_Documentation.pdf
+	-rm -f $(DOC_DIR)/LinuxCNC_Integrator.pdf
 	-rm -f $(DOC_DIR)/LinuxCNC_Documentation_es.pdf
 	-rm -f $(DOC_DIR)/LinuxCNC_User_Manual_fr.pdf
 	-rm -f $(DOC_DIR)/LinuxCNC_HAL_Manual_fr.pdf
@@ -607,6 +613,10 @@ endif
 %.eps:; $(error Required image file $@ does not exist)
 
 # make manpages from all the asciidoc manpage-sources
+# Note that in some versions of asciidoc, including the one in Debian Jessie,
+# a2x spuriously warns that this --destination-dir is ignored.  It is *NOT*
+# ignored, don't remove it trying to fix the diagnostic.
+# For more information, see https://github.com/asciidoc/asciidoc/issues/44
 GENERATED_MANPAGES += $(patsubst $(DOC_DIR)/src/man/%.txt, $(DOC_DIR)/man/%, $(wildcard $(DOC_DIR)/src/man/man?/*.txt))
 $(DOC_DIR)/man/%: $(DOC_DIR)/src/man/%.txt
 	@mkdir -p `dirname $@`

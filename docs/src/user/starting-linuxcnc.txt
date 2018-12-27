@@ -1,4 +1,4 @@
-[[cha:starting-linuxcnc]](((Starting LinuxCNC)))
+[[cha:starting-linuxcnc]]
 
 = Starting LinuxCNC
 
@@ -33,4 +33,4 @@ The configuration files are saved in linuxcnc/configs directory.
 
 .Configuration Selector
 
-image::images/configuration-selector.png[align="center"]
+image::images/configuration-selector.png[align="center", alt="LinuxCNC Configuration Selector"]

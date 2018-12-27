@@ -21,7 +21,12 @@
 EMC_AXIS_STAT::EMC_AXIS_STAT():
 EMC_AXIS_STAT_MSG(EMC_AXIS_STAT_TYPE, sizeof(EMC_AXIS_STAT))
 {
-    axisType = EMC_AXIS_LINEAR;
+}
+
+EMC_JOINT_STAT::EMC_JOINT_STAT():
+EMC_JOINT_STAT_MSG(EMC_JOINT_STAT_TYPE, sizeof(EMC_JOINT_STAT))
+{
+    jointType = EMC_LINEAR;
     units = 1.0;
     backlash = 0.0;
     minPositionLimit = -1.0;
@@ -51,7 +56,8 @@ EMC_TRAJ_STAT_MSG(EMC_TRAJ_STAT_TYPE, sizeof(EMC_TRAJ_STAT))
     linearUnits = 1.0;
     angularUnits = 1.0;
     cycleTime = 0.0;
-    axes = 1;
+    joints = 1;
+    deprecated_axes = 1;
     axis_mask = 1;
     mode = EMC_TRAJ_MODE_FREE;
     enabled = OFF;
@@ -63,7 +69,6 @@ EMC_TRAJ_STAT_MSG(EMC_TRAJ_STAT_TYPE, sizeof(EMC_TRAJ_STAT))
     paused = OFF;
     scale = 0.0;
     rapid_scale = 0.0;
-    spindle_scale = 0.0;
 
     ZERO_EMC_POSE(position);
     ZERO_EMC_POSE(actualPosition);
@@ -84,7 +89,6 @@ EMC_TRAJ_STAT_MSG(EMC_TRAJ_STAT_TYPE, sizeof(EMC_TRAJ_STAT))
     motion_type = 0;
     current_vel = 0.0;
     feed_override_enabled = OFF;
-    spindle_override_enabled = OFF;
     adaptive_feed_enabled = OFF;
     feed_hold_enabled = OFF;
 }
@@ -94,12 +98,12 @@ EMC_MOTION_STAT_MSG(EMC_MOTION_STAT_TYPE, sizeof(EMC_MOTION_STAT))
 {
     int i;
 
-    for (i = 0; i < EMC_MAX_DIO; i++) {
+    for (i = 0; i < EMCMOT_MAX_DIO; i++) {
 	synch_di[i] = 0;
 	synch_do[i] = 0;
     }
 
-    for (i = 0; i < EMC_MAX_AIO; i++) {
+    for (i = 0; i < EMCMOT_MAX_AIO; i++) {
 	analog_input[i] = 0.0;
 	analog_output[i] = 0.0;
     }
@@ -157,6 +161,7 @@ EMC_TOOL_STAT_MSG(EMC_TOOL_STAT_TYPE, sizeof(EMC_TOOL_STAT))
 
     for (t = 0; t < CANON_POCKETS_MAX; t++) {
 	toolTable[t].toolno = 0;
+    toolTable[t].pocketno = 0;
         ZERO_EMC_POSE(toolTable[t].offset);
 	toolTable[t].diameter = 0.0;
 	toolTable[t].orientation = 0;
@@ -179,6 +184,9 @@ EMC_SPINDLE_STAT_MSG(EMC_SPINDLE_STAT_TYPE, sizeof(EMC_SPINDLE_STAT))
     brake = 1;
     increasing = 0;
     enabled = 0;
+    spindle_scale = 1.0;
+    spindle_override_enabled = 0;
+
 }
 
 EMC_COOLANT_STAT::EMC_COOLANT_STAT():EMC_COOLANT_STAT_MSG(EMC_COOLANT_STAT_TYPE,
@@ -206,6 +214,7 @@ EMC_TOOL_STAT EMC_TOOL_STAT::operator =(EMC_TOOL_STAT s)
 
     for (t = 0; t < CANON_POCKETS_MAX; t++) {
 	toolTable[t].toolno = s.toolTable[t].toolno;
+    toolTable[t].pocketno = s.toolTable[t].pocketno;
 	toolTable[t].offset = s.toolTable[t].offset;
 	toolTable[t].diameter = s.toolTable[t].diameter;
 	toolTable[t].frontangle = s.toolTable[t].frontangle;

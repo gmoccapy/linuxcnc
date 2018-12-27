@@ -39,7 +39,7 @@
 
     You should have received a copy of the GNU General Public
     License along with this library; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111 USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
     THE AUTHORS OF THIS LIBRARY ACCEPT ABSOLUTELY NO LIABILITY FOR
     ANY HARM OR LOSS RESULTING FROM ITS USE.  IT IS _EXTREMELY_ UNWISE
@@ -164,11 +164,17 @@ int main(int argc, char **argv)
     /* open shmem for user/RT comms (stream) */
     int r = hal_stream_attach(&stream, comp_id, STREAMER_SHMEM_KEY+channel, 0);
     if ( r < 0 ) {
+	errno = -r;
 	perror("hal_stream_attach");
 	goto out;
     }
     int num_pins = hal_stream_element_count(&stream);
     while ( fgets(buf, BUF_SIZE, stdin) ) {
+	/* skip comment lines */
+	if ( buf[0] == '#' ) {
+	    line++;
+	    continue;
+	}
 	cp = buf;
 	errmsg = NULL;
 	union hal_stream_data data[num_pins];

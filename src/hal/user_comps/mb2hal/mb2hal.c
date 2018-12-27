@@ -20,7 +20,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301-1307
  * USA.
  */
 
@@ -161,6 +161,7 @@ void *link_loop_and_logic(void *thrd_link_num)
             if (ret_available == 0) {
                 DBG(this_mb_tx->cfg_debug, "mb_tx_num[%d] mb_links[%d] thread[%d] fd[%d] NOT available",
                     this_mb_tx_num, this_mb_tx->mb_link_num, this_mb_link_num, modbus_get_socket(this_mb_link->modbus));
+                usleep(1000);
                 continue;
             }
 
@@ -176,6 +177,7 @@ void *link_loop_and_logic(void *thrd_link_num)
             if (ret_connected == 0) {
                 DBG(this_mb_tx->cfg_debug, "mb_tx_num[%d] mb_links[%d] thread[%d] fd[%d] NOT connected",
                     this_mb_tx_num, this_mb_tx->mb_link_num, this_mb_link_num, modbus_get_socket(this_mb_link->modbus));
+                usleep(1000);
                 continue;
             }
 
@@ -192,6 +194,9 @@ void *link_loop_and_logic(void *thrd_link_num)
                 break;
             case mbtx_04_READ_INPUT_REGISTERS:
                 ret = fnct_04_read_input_registers(this_mb_tx, this_mb_link);
+                break;
+            case mbtx_06_WRITE_SINGLE_REGISTER:
+                ret = fnct_06_write_single_register(this_mb_tx, this_mb_link);
                 break;
             case mbtx_15_WRITE_MULTIPLE_COILS:
                 ret = fnct_15_write_multiple_coils(this_mb_tx, this_mb_link);
@@ -220,6 +225,8 @@ void *link_loop_and_logic(void *thrd_link_num)
                 (**this_mb_tx->num_errors)++;
                 ERR(this_mb_tx->cfg_debug, "mb_tx_num[%d] mb_links[%d] thread[%d] fd[%d] transaction failure, num_errors[%d]",
                     this_mb_tx_num, this_mb_tx->mb_link_num, this_mb_link_num, modbus_get_socket(this_mb_link->modbus), **this_mb_tx->num_errors);
+                // Clear any unread data. Otherwise the link might get out of sync
+                modbus_flush(this_mb_link->modbus);
             }
             else { //transaction and link OK
                 OK(this_mb_tx->cfg_debug, "mb_tx_num[%d] mb_links[%d] thread[%d] fd[%d] transaction OK, update_HZ[%0.03f]",
@@ -359,14 +366,22 @@ retCode get_tx_connection(const int this_mb_tx_num, int *ret_connected)
     //set response and byte timeout according to each mb_tx
     timeout.tv_sec  = this_mb_tx->mb_response_timeout_ms / 1000;
     timeout.tv_usec = (this_mb_tx->mb_response_timeout_ms % 1000) * 1000;
+#if (LIBMODBUS_VERSION_CHECK(3, 1, 2))
+    modbus_set_response_timeout(this_mb_link->modbus, timeout.tv_sec, timeout.tv_usec);
+#else
     modbus_set_response_timeout(this_mb_link->modbus, &timeout);
+#endif
     //DBG(this_mb_tx->cfg_debug, "mb_tx_num[%d] mb_links[%d] response timeout [%d] ([%d] [%d])",
     //    this_mb_tx_num, this_mb_tx->mb_link_num, this_mb_tx->mb_response_timeout_ms,
     //    (int) timeout.tv_sec, (int) timeout.tv_usec);
 
     timeout.tv_sec  = this_mb_tx->mb_byte_timeout_ms / 1000;
     timeout.tv_usec = (this_mb_tx->mb_byte_timeout_ms % 1000) * 1000;
+#if (LIBMODBUS_VERSION_CHECK(3, 1, 2))
+    modbus_set_byte_timeout(this_mb_link->modbus, timeout.tv_sec, timeout.tv_usec);
+#else
     modbus_set_byte_timeout(this_mb_link->modbus, &timeout);
+#endif
     //DBG(this_mb_tx->cfg_debug, "mb_tx_num[%d] mb_links[%d] byte timeout [%d] ([%d] [%d])",
     //    this_mb_tx_num, this_mb_tx->mb_link_num, this_mb_tx->mb_byte_timeout_ms,
     //    (int) timeout.tv_sec, (int) timeout.tv_usec);
@@ -385,6 +400,7 @@ void set_init_gbl_params()
     gbl.mb_tx_fncts[mbtx_02_READ_DISCRETE_INPUTS]    = "fnct_02_read_discrete_inputs";
     gbl.mb_tx_fncts[mbtx_03_READ_HOLDING_REGISTERS]  = "fnct_03_read_holding_registers";
     gbl.mb_tx_fncts[mbtx_04_READ_INPUT_REGISTERS]    = "fnct_04_read_input_registers";
+    gbl.mb_tx_fncts[mbtx_06_WRITE_SINGLE_REGISTER]   = "fnct_06_write_single_register";
     gbl.mb_tx_fncts[mbtx_15_WRITE_MULTIPLE_COILS]    = "fnct_15_write_multiple_coils";
     gbl.mb_tx_fncts[mbtx_16_WRITE_MULTIPLE_REGISTERS]= "fnct_16_write_multiple_registers";
 

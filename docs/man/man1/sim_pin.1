@@ -17,7 +17,7 @@
 .\"
 .\" You should have received a copy of the GNU General Public
 .\" License along with this manual; if not, write to the Free
-.\" Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111,
+.\" Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 .\" USA.
 .\"
 .\"
@@ -27,7 +27,11 @@
 \fBsim_pin\fR \- gui for displaying and setting one or more Hal inputs
 
 .SH SYNOPSIS
-.B \fBsim_pin\fR \fIname1\fR [\fIname2\fR [\fIname3\fR ...]]
+.B \fBsim_pin\fR \fI[Options]\fR \fIname1\fR [\fIname2\fR [\fIname3\fR ...]]
+
+\fIOptions\fR:
+  \fB\-\-help\fR (shows help text)
+  \fB\-\-title title_string\fR
 
 For bit items, the name may include a /mode= specifier:
     \fInamei\fR\fB/mode=\fR[\fBpulse\fR | \fBtoggle\fR | \fBhold\fR]
@@ -39,7 +43,7 @@ Hal boolean items (bit) and numerical items (u32, s32, float) are supported.
 
 If the named input is a numerical type, the gui displays:
 .P
-   \fBEntry\fR  Entry widget for new value
+   \fBEntry\fR  Entry widget for value or a valid Tcl expression.
 .br
    \fBSet\fR    Pushbutton to set new value from Entry (or use <RETURN>)
 .br
@@ -54,6 +58,10 @@ that is controlled by radio\-button selectors:
 .br
    mode=\fBhold\fR    Set input to 1 while pushbutton pressed
 
+If the bit item mode begins with an uppercase letter,
+the radio buttons for selecting other modes are not shown
+
+
 
 .SH NOTE
 LinuxCNC or a standalone Hal application must be running
@@ -61,7 +69,7 @@ LinuxCNC or a standalone Hal application must be running
 A named item can specify a \fBpin\fR, \fBparam\fR, or \fBsignal\fR.
 The named item must be writable:
 .P
-  \fBpin    IN or I/O\fR (and not connected to a signal)
+  \fBpin    IN or I/O\fR (and not connected to a signal with a writer)
 .br
   \fBparam  RW\fR
 .br
@@ -82,5 +90,5 @@ Example for ini file usage:
 .br
           ini.traj_arc_blend_enable \\
 .br
-          motion-command-handler-tmax
+          motion\-command\-handler\-tmax
 

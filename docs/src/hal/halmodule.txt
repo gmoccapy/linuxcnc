@@ -1,4 +1,4 @@
-[[cha:halmodule]](((Userspace Python Components)))
+[[cha:halmodule]]
 
 = Creating Userspace Python Components
 
@@ -12,7 +12,7 @@ once per second.
 
 [source,c]
 ----
-#!/usr/bin/python
+#!/usr/bin/env python
 import hal, time
 h = hal.component("passthrough")
 h.newpin("in", hal.HAL_FLOAT, hal.HAL_IN)
@@ -156,6 +156,112 @@ process should either
 exit in a short time, or call the '.exit()' method on the component 
 if substantial work (such as reading or 
 writing files) must be done to complete the shutdown process.
+
+== Helpful Functions
+
+=== component_exists
+
+Does the specified component exist at this time. +
+Example: +
+hal.component_exists("testpanel") +
+
+=== component_is_ready
+Is the specified component ready at this time. +
+Example: +
+hal.component_is_ready("testpanel") +
+
+=== get_msg_level
+
+Get the current Realtime msg level. +
+
+=== set_msg_level
+
+set the current Realtime msg level. +
+used for debugging information. +
+
+=== connect
+
+Connect a pin to a signal. +
+example: +
+hal.connect("pinname","signal_name")
+
+=== get_value
+
+read a pin, param or signal directly. +
+example: +
+value = hal.get_value("iocontrol.0.emc-enable-in") +
+
+=== new_signal
+Create a New signal of the type specified. +
+example" +
+hal.new_sig("signalname",hal.HAL_BIT)
+
+=== pin_has_writer
+
+Does the specified pin have a driving pin connected. +
+Returns True or False. +
+
+=== sampler_base
+
+TODO +
+
+=== stream_base
+
+TODO +
+
+=== stream
+
+TODO +
+
+=== set_p
+
+Set a pin value. +
+example: +
+hal.set_p("pinname","10") +
+
+== Constants
+
+Use These To specify details rather then the value they hold.
+
+* HAL_BIT
+
+* HAL_FLOAT
+
+* HAL_S32
+
+* HAL_U32
+
+* HAL_IN
+
+* HAL_OUT
+
+* HAL_RO
+
+* HAL_RW
+
+* MSG_NONE
+
+* MSG_ALL
+
+* MSG_DBG
+
+* MSG_ERR
+
+* MSG_INFO
+
+* MSG_WARN
+
+== System Information
+
+Read these to aquire information about the realtime system.
+
+* is_kernelspace
+
+* is_rt
+
+* is_sim
+
+* is_userspace
 
 == Project ideas
 

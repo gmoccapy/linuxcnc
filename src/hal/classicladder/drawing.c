@@ -18,7 +18,7 @@
 
 /* You should have received a copy of the GNU Lesser General Public */
 /* License along with this library; if not, write to the Free Software */
-/* Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
+/* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA. */
 
 #include <gtk/gtk.h>
 #include <stdio.h>
@@ -908,7 +908,7 @@ void DrawElement(GdkPixmap * DrawPixmap,int x,int y,int Width,int Height,StrElem
 	}
 	else
 	{
-		// only usefull to see abnormal elements in a rung (eraser bug in versions < 0.7.124)
+		// only useful to see abnormal elements in a rung (eraser bug in versions < 0.7.124)
 		if ( Element.Type>=EDIT_CNX_WITH_TOP )
 		{
 			sprintf( BufTxt, "(%d)", Element.Type );

@@ -20,7 +20,7 @@
  * Each loop has a number of pins and parameters
  * When the 'num_chan=' method is used, names begin with 'pid.x.', where
  * 'x' is the channel number.  Channel numbers  start at zero.
- * When the 'names=' method is used, names begin with the specifed names,
+ * When the 'names=' method is used, names begin with the specified names,
  * e.g., for 'names=PID', the pin/parameter begin with "PID."
  *
  * The three most important pins are 'command', 'feedback', and
@@ -59,7 +59,7 @@
  * All of the limits (max____) are implemented such that if the
  * parameter value is zero, there is no limit.
  *
- * A number of internal values which may be usefull for testing
+ * A number of internal values which may be useful for testing
  * and tuning are also available as parameters.  To avoid cluttering
  * the parameter list, these are only exported if "debug=1" is
  * specified on the insmod command line.
@@ -104,7 +104,7 @@
  *
  * You should have received a copy of the GNU General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111 USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  *
  * THE AUTHORS OF THIS LIBRARY ACCEPT ABSOLUTELY NO LIABILITY FOR
  * ANY HARM OR LOSS RESULTING FROM ITS USE.  IT IS _EXTREMELY_ UNWISE
@@ -544,7 +544,7 @@ Pid_Export(Pid *this, int compId,char* prefix)
 
 /*
  * Perform an auto-tune operation. Sets up a limit cycle using the specified
- * tune effort. Averages the amplitude and period over the specifed number of
+ * tune effort. Averages the amplitude and period over the specified number of
  * cycles. This characterizes the process and determines the ultimate gain
  * and period, which are then used to calculate PID.
  *

@@ -18,7 +18,7 @@
 
     You should have received a copy of the GNU Lesser General Public
     License along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA.
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301-1307  USA.
 
 
     This is a userspace program that interfaces the Automation Direct
@@ -420,7 +420,7 @@ void usage(int argc, char **argv) {
     "-n or --name <string> (default gs2_vfd)\n"
     "    Set the name of the HAL module.  The HAL comp name will be set to <string>, and all pin\n"
     "    and parameter names will begin with <string>.\n"
-    "-p or --parity {even,odd,none} (defalt odd)\n"
+    "-p or --parity {even,odd,none} (default odd)\n"
     "    Set serial parity to even, odd, or none.\n"
     "-r or --rate <n> (default 38400)\n"
     "    Set baud rate to <n>.  It is an error if the rate is not one of the following:\n"

@@ -19,7 +19,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with this library; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111 USA
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 THE AUTHORS OF THIS LIBRARY ACCEPT ABSOLUTELY NO LIABILITY FOR
 ANY HARM OR LOSS RESULTING FROM ITS USE.  IT IS _EXTREMELY_ UNWISE
@@ -138,7 +138,7 @@ struct bitfile_chunk *bitfile_find_chunk(struct bitfile *bf, char tag, int n);
 
 /* 'bitfile_print_chunk' searches a caller supplied struct bitfile for a
    chunk whose tag matches 'tag', and prints the body of that chunk as a
-   string, preceeded by a caller supplied title.  If no match is found
+   string, preceded by a caller supplied title.  If no match is found
    it prints nothing.  This is handy for printing out the contents of
    the standard Xilinx 'a' through 'd' fields, but will print binary
    junk if invoked on the 'e' chunk (the actual bitstream), or any chunk

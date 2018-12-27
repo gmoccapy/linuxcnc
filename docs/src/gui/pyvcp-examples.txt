@@ -15,7 +15,7 @@ things.
 * Add the links to HAL pins for your panel in the postgui.hal file to
    'connect' your PyVCP panel to LinuxCNC.
 
-== Floating
+== Floating Panels
 
 To create floating PyVCP panels that can be used with any interface
 you need to do the following basic things.
@@ -58,7 +58,7 @@ Wizard.
 
 .XYZ Wizard Configuration[[cap:XYZ-Wizard-Configuration]]
 
-image::images/xyz_ACO.png[]
+image::images/xyz_ACO.png[alt="XYZ Wizard Configuration"]
 
 The Stepconf Wizard will create several files and place them in the
 linuxcnc/configs/pyvcp_xyz directory. If you left the create link checked
@@ -166,7 +166,7 @@ will be there.
 
 .Jog Buttons[[cap:Jog-Buttons]]
     
-image::images/xyz_buttons.png[]
+image::images/xyz_buttons.png[alt="Jog Buttons"]
 
 === Make Connections
 
@@ -271,7 +271,7 @@ of in pins and a couple of out pins.
 
 .Port Tester Panel[[cap:Port-Tester-Panel]]
 
-image::images/ptest.png[]
+image::images/ptest.png[alt="Port Tester Panel"]
 
 To run the HAL commands that we need to get everything up and running
 we put the following in our ptest.hal file.
@@ -300,7 +300,7 @@ The following figure shows what a complete panel might look like.
 
 .Port Tester Complete[[cap:Port-Tester-Complete]]
 
-image::images/ptest-final.png[]
+image::images/ptest-final.png[alt="Port Tester Complete"]
 
 To add the rest of the parallel port pins just modify the .xml and
 .hal files.
@@ -446,7 +446,7 @@ The above gives us a PyVCP panel that looks like the following.
 
 .GS2 Panel[[cap:GS2-Panel]]
 
-image::images/gs2_panel.png[]
+image::images/gs2_panel.png[alt="GS2 Panel"]
 
 === The Connections
 
@@ -477,4 +477,56 @@ use the spindle-rev bit. You can't link the spindle-fwd bit twice so
 you use the signal that it was linked to.
 
 
+== Rapid to Home Button
 
+This example creates a button on the PyVCP side panel when pressed will send
+all the axis back to the home position. This example assumes you don't have a
+PyVCP panel.
+
+image::images/pyvcp-rth.png[align="center"]
+
+In your configuration directory create the .xml file. In this example it's named
+'rth.xml'. In the 'rth.xml' file add the following code to create the button.
+
+----
+<pyvcp>
+<!-- rapid to home button example -->
+<button>
+<halpin>"rth-button"</halpin>
+<text>"Rapid to Home"</text>
+</button>
+</pyvcp>
+----
+
+Open your .ini file with a text editor and in the [DISPLAY] section add the
+following line. This is what loads the PyVCP panel.
+
+----
+PYVCP = rth.xml
+----
+
+If you don't have a [HALUI] section in the ini file create it and add the
+following MDI command.
+
+----
+MDI_COMMAND = G53 G0 X0 Y0 Z0
+----
+
+[NOTE]
+Information about <<gcode:g53,G53>> and <<gcode:g0,G0>> G codes
+
+In the [HAL] section if you don't have a post gui file add the following and
+create a file called 'postgui.hal'.
+
+----
+POSTGUI_HALFILE = postgui.hal
+----
+
+In the 'postgui.hal' file add the following code to link the PyVCP button to the
+MDI command.
+
+----
+net rth halui.mdi-command-00 <= pyvcp.rth-button
+----
+
+NOTE: Information about the <<sub:net, net>> command

@@ -13,7 +13,7 @@
 #
 #   You should have received a copy of the GNU General Public License
 #   along with this program; if not, write to the Free Software
-#   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 # gmoccapy - Remap of M6 for auto tool measurement
 
@@ -117,7 +117,7 @@ _compat = {
     emccanon.CANON_PLANE_VW : (("u","r"),_xyz,"VW"),
     emccanon.CANON_PLANE_UW : (("v","r"),_xyz,"UW")}           
 
-# extract and pass parameters from current block, merged with extra paramters on a continuation line
+# extract and pass parameters from current block, merged with extra parameters on a continuation line
 # keep tjose parameters across invocations
 # export the parameters into the oword procedure
 def cycle_prolog(self,**words):

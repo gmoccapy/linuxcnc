@@ -6,6 +6,8 @@
 hm2_uart_read \- read data from a Hostmot2 UART buffer
 
 .SH SYNTAX
+.nf
+.B #include <hostmot2-serial.h>
 .HP
 int hm2_uart_read(char *name, unsigned char *data)
 
@@ -25,7 +27,7 @@ Note that the UART Receieve FIFO is only 16 bytes deep,(the transmit FIFO is 64
 bytes) and "data" needs to be at least that large or undefined mayhem will ensue. 
 
 .SH RETURN VALUE
-Returns the number of bytes read on success and -1 on failure.
+Returns the number of bytes read on success and \-1 on failure.
 
 .SH SEE ALSO
 man hm2_uart_setup, man hm2_uart_send

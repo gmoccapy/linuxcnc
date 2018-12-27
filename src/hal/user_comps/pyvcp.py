@@ -15,7 +15,7 @@
 #
 #    You should have received a copy of the GNU General Public License
 #    along with this program; if not, write to the Free Software
-#    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 
 """ Python Virtual Control Panel for EMC
@@ -31,7 +31,7 @@
     myfile.xml is an XML file which specifies the layout of the VCP.
     Valid XML tags are described in the documentation for pyvcp_widgets.py
 
-    -g option allows setting of the inital size and/or position of the panel
+    -g option allows setting of the initial size and/or position of the panel
 """
 
 import sys, os

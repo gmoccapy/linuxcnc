@@ -15,8 +15,11 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
+#ifndef BOOST_PYTHON_NAX_ARITY
+#define BOOST_PYTHON_MAX_ARITY 4
+#endif
 #include <string.h>
 #include "rs274ngc_interp.hh"
 #include <boost/python/object.hpp>
@@ -120,11 +123,11 @@ setup::setup() :
     selected_pocket(0),
     selected_tool(0),
     sequence_number(0),
-    speed (0.0),
-    spindle_mode(CONSTANT_RPM),
-    speed_feed_mode(0),
-    speed_override(0),
-    spindle_turning(0),
+    speed {0.0},
+    spindle_mode{CONSTANT_RPM},
+    speed_feed_mode{0},
+    speed_override{0},
+    spindle_turning{0},
     stack{},
     stack_index(0),
     tool_offset{{0,0,0},0,0,0,0,0,0},
@@ -165,13 +168,15 @@ setup::setup() :
     b_axis_wrapped(0),
     c_axis_wrapped(0),
 
-    a_indexer(0),
-    b_indexer(0),
-    c_indexer(0),
+    a_indexer_jnum(0),
+    b_indexer_jnum(0),
+    c_indexer_jnum(0),
 
     lathe_diameter_mode(0),
     mdi_interrupt(0),
     feature_set(0),
+    disable_fanuc_style_sub(false),
+    loop_on_main_m99(false),
     disable_g92_persistence(0),
     pythis(),
     on_abort_command(NULL),
