@@ -530,6 +530,8 @@ class gmoccapy(object):
 
         # Do we control a lathe?
         if self.lathe_mode:
+            # is this a backtool lathe?
+            self.backtool_lathe = self.get_ini_info.get_backtool_lathe()
 
             # we first hide the Y button to home and touch off
             self.widgets.btn_home_y.hide()
@@ -1129,17 +1131,10 @@ class gmoccapy(object):
         grid_size = self.prefs.getpref( 'grid_size', 1.0, float )
         self.widgets.grid_size.set_value( grid_size )
         self.widgets.gremlin.grid_size = grid_size
-        if self.lathe_mode:
-            if self.backtool_lathe:
-                view = self.prefs.getpref( 'view', "y2", str )
-            else:
-                view = self.prefs.getpref( 'view', "y", str )
-            self.widgets.gremlin.set_property( "mouse_btn_mode", self.prefs.getpref( "mouse_btn_mode", 2, int ) )
-        else:
-            view = self.prefs.getpref( 'view', "p", str )
-            self.widgets.gremlin.set_property( "mouse_btn_mode", self.prefs.getpref( "mouse_btn_mode", 4, int ) )
+        view = self.prefs.getpref( 'view', "p", str )
         self.widgets.gremlin.set_property( "view", view )
         self.widgets.gremlin.set_property( "metric_units", int( self.stat.linear_units ) )
+        self.widgets.gremlin.set_property( "mouse_btn_mode", self.prefs.getpref( "mouse_btn_mode", 4, int ) )
         self.widgets.gremlin.set_property( "use_commanded", not self.dro_actual)
         self.widgets.eb_program_label.modify_bg(gtk.STATE_NORMAL, gtk.gdk.Color(0, 0, 0))
         self.widgets.eb_blockheight_label.modify_bg(gtk.STATE_NORMAL, gtk.gdk.Color(0, 0, 0))

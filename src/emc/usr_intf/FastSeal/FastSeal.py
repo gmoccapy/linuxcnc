@@ -594,9 +594,6 @@ class FastSeal( object ):
             self.axis_list.append( letter.lower() )
 
     def _init_preferences( self ):
-        # we need to change axis Z axis letter, as Joint 1 will result in Y
-        self.widgets.Combi_DRO_z.set_property("joint_number", 1)
-        self.widgets.Combi_DRO_z.change_axisletter("Z")
         
         # check if NO_FORCE_HOMING is used in ini
         self.no_force_homing = self.get_ini_info.get_no_force_homing()
@@ -670,6 +667,11 @@ class FastSeal( object ):
     def _init_axis_size( self ):
         self.dro_size = int( self.prefs.getpref( "dro_size", 28, int ) )
         self.widgets.adj_dro_size.set_value( self.dro_size )
+
+        # we need to change axis Z axis letter, as Joint 1 will result in Y
+        #self.widgets.Combi_DRO_z.change_axisletter("Z")
+        self.widgets.Combi_DRO_z.set_joint(1)
+
 
     def _init_jog_increments( self ):
         # Now we will build the option buttons to select the Jog-rates
@@ -1163,9 +1165,15 @@ class FastSeal( object ):
                 self._update_widgets( False )
                 return
             self._update_widgets( True )
+            self.set_motion_mode(1)
         else:
             self.command.state( linuxcnc.STATE_OFF )
             self._update_widgets( False )
+
+    def set_motion_mode(self, state):
+        # 1:teleop, 0: joint
+        self.command.teleop_enable(state)
+        self.command.wait_complete()
 
     # The mode buttons
     def on_rbt_manual_pressed( self, widget, data = None ):
@@ -2267,23 +2275,33 @@ class FastSeal( object ):
         self.widgets.ntb_button.set_current_page( 3 )
 
     def on_btn_home_all_clicked( self, widget, data = None ):
+        if self.stat.motion_mode != 1:
+            self.set_motion_mode(0)
+
         # home -1 means all
         self.command.home( -1 )
 
     def on_btn_unhome_all_clicked( self, widget, data = None ):
+        self.set_motion_mode(0)
         self.all_homed = False
         # -1 for all
         self.command.unhome( -1 )
+# just to make it work jogging in joint mode        
+        self.command.wait_complete()
+        if self.stat.motion_mode != 1:
+            self.set_motion_mode(1)
 
     def on_btn_home_selected_clicked( self, widget, data = None ):
         if widget == self.widgets.btn_home_x:
             axis = 0
-        elif widget == self.widgets.btn_home_y:
-            axis = 1
+#        elif widget == self.widgets.btn_home_y:
+#            axis = 1
         elif widget == self.widgets.btn_home_z:
-            axis = 2
-        elif widget == self.widgets.btn_home_4:
-            axis = "xyzabcuvw".index( self.axisletter_four )
+#changed this to get the correct joint homed
+            axis = 1
+#        elif widget == self.widgets.btn_home_4:
+#            axis = "xyzabcuvw".index( self.axisletter_four )
+        self.set_motion_mode(0)
         self.command.home( axis )
 
     def _check_limits( self ):
