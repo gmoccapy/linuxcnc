@@ -75,7 +75,7 @@ sys.excepthook = excepthook
 
 # constants
 #         # FastSeal  #"
-_RELEASE = "  0.9.0"
+_RELEASE = "  0.9.1"
 _INCH = 0                         # imperial units are active
 _MM = 1                           # metric units are active
 _TEMPDIR = tempfile.gettempdir()  # Now we know where the tempdir is, usualy /tmp
@@ -87,11 +87,18 @@ sys.path.insert( 0, LIBDIR )
 
 # as now we know the libdir path we can import our own modules
 from FastSeal import widgets       # a class to handle the widgets
-from FastSeal import player        # a class to handle sounds
 from FastSeal import notification  # this is the module we use for our error handling
 from FastSeal import preferences   # this handles the preferences
 from FastSeal import getiniinfo    # this handles the INI File reading so checking is done in that module
 from FastSeal import dialogs       # this takes the code of all our dialogs
+
+_AUDIO_AVAILABLE = False
+try:
+    import gst
+    from FastSeal import player        # a class to handle sounds
+    _AUDIO_AVAILABLE = True
+except:
+    pass
 
 # set up paths to files, part two
 CONFIGPATH = os.environ['CONFIG_DIR']
@@ -228,7 +235,8 @@ class FastSeal( object ):
         self._init_dynamic_tabs()
         self._init_tooleditor()
         self._init_themes()
-        self._init_audio()
+        if self._AUDIO_AVAILABLE:
+            self._init_audio()
         self._init_gremlin()
         self._init_hide_cursor()
         self._init_offsetpage()
@@ -819,7 +827,6 @@ class FastSeal( object ):
 
     def _init_audio( self ):
         # try to add ability for audio feedback to user.
-        self._AUDIO_AVAILABLE = False
         try:
             import gst
 

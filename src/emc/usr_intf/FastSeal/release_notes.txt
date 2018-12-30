@@ -1,3 +1,12 @@
+ver. 0.9.1
+- as gst import caused an error added a try except to avoid that error if 
+  the corresponding package is not installed
+  you may get the corresponding package for STRETCH from:
+  https://packages.debian.org/stretch/python-gst-1.0
+
+ver. 0.9.0
+- first try to rebase the GUI on master
+
 ver. 0.8.1
 - deleted unneeded print commands
 

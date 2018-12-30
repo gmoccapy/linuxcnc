@@ -55,7 +55,7 @@ class Player:
             self.player.set_state(gst.STATE_NULL)
             self.loop.quit()
         elif t == gst.MESSAGE_ERROR:
-            # Error ocurred, print and stop
+            # Error occurred, print and stop
             self.player.set_state(gst.STATE_NULL)
             err, debug = message.parse_error()
             print ("Error: %s" % err, debug)
