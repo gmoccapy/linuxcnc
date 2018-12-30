@@ -39,18 +39,12 @@ from time import sleep             # needed to wait for command complete
 # ToDo : is this necessary ?
 
 
-import gladevcp.makepins                  # needed for the dialog"s calculator widget
+#import gladevcp.makepins                  # needed for the dialog"s calculator widget
 from gladevcp.combi_dro import Combi_DRO  # we will need it to make the DRO
 
-from gmoccapy import widgets              # a class to handle the widgets
-from gmoccapy import getiniinfo           # this handles the INI File reading so
-                                          # checking is done in that module
+#from gmoccapy import widgets              # a class to handle the widgets
+from gmoccapy import getiniinfo           # this handles the INI File reading
 from gmoccapy import preferences          # this handles the preferences
-from gmoccapy import dialogs              # this takes the code of all our dialogs
-
-#from lxml.cssselect import is_int
-
-#from hal_glib import GStat
 
 BASE = os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]), ".."))
 LOCALEDIR = os.path.join(BASE, "share", "locale")
@@ -146,7 +140,7 @@ class Build_GUI(gobject.GObject):
                    }
 
 
-    def __init__(self, halcomp, _RELEASE):
+    def __init__(self, widgets, _RELEASE):
         super(Build_GUI, self).__init__()
         
         # prepare for translation / internationalization
@@ -155,35 +149,15 @@ class Build_GUI(gobject.GObject):
         gettext.install("gmoccapy", localedir=LOCALEDIR, unicode=True)
         gettext.bindtextdomain("gmoccapy", LOCALEDIR)
 
-        self.halcomp = halcomp
-
-        self.builder = gtk.Builder()
-
-        # translation of the glade file will be done with
-        self.builder.set_translation_domain("gmoccapy")
-        self.builder.add_from_file(XMLNAME)
-        self.builder.connect_signals(self)
-
         # get all widgets as class, so they can be called directly
-        self.widgets = widgets.Widgets(self.builder)
-
-        # and this class will handle the dialogs
-        self.dialogs = dialogs.Dialogs()
+        self.widgets = widgets
 
         self.get_ini_info = getiniinfo.GetIniInfo()
-        self._RELEASE = _RELEASE
-
-        # This class will handle all the user preferences
         self.prefs = preferences.preferences(self.get_ini_info.get_preference_file_path())
-
-        # set initial values for the GUI
-        self._set_initial_values()
+        self._RELEASE = _RELEASE
 
         self._get_ini_data()
         self._get_pref_data()
-
-        # Show the main window
-        self.widgets.window1.show()
 
         # make all widgets we create dynamically
         self._make_DRO()
@@ -198,17 +172,25 @@ class Build_GUI(gobject.GObject):
 
         # set initial values for all widgets
         self._init_widgets()
-        self._activate_widgets()
+        #self._activate_widgets()
 
-        self._init_gremlin()
+        #self._init_gremlin()
 
         # if we have a lathe, we need to rearrange some stuff
         # we will do that in a separate function
         if self.lathe_mode:
             self._make_lathe()
         
-        panel = gladevcp.makepins.GladePanel(self.halcomp, XMLNAME, self.builder, None)
+        self._arrange_dro()
+        self._arrange_jog_button()
 
+        # set initial values for the GUI
+#        self._set_initial_values()
+
+#        panel = gladevcp.makepins.GladePanel(self.XMLNAME, self.builder, None)
+
+        # Show the main window
+#        self.widgets.window1.show()
 
 
 ###############################################################################
@@ -238,9 +220,6 @@ class Build_GUI(gobject.GObject):
             dro.set_property("actual", self.dro_actual)
             dro.connect("clicked", self._on_DRO_clicked)
             self.dro_dic[dro.name] = dro
-        # if we have a lathe we will arrange them later
-        if not self.lathe_mode:
-            self._arrange_dro()
 
     def _make_ref_button(self):
         print("**** GMOCCAPY build_GUI INFO ****")
@@ -502,53 +481,95 @@ class Build_GUI(gobject.GObject):
                 btn.modify_bg(gtk.STATE_ACTIVE, gtk.gdk.color_parse("#FFFF00"))
 
                 self.jog_button_dic[name] = btn
-                
-        self._arrange_jog_button()
 
-    def _on_btn_set_value_clicked(self, widget, data = None):
-        if widget == self.widgets.btn_set_value_x:
-            axis = "x"
-        elif widget == self.widgets.btn_set_value_y:
-            axis = "y"
-        elif widget == self.widgets.btn_set_value_z:
-            axis = "z"
-        elif widget == self.widgets.btn_set_value_4:
-            axis = self.axisletter_four
-        elif widget == self.widgets.btn_set_value_5:
-            axis = self.axisletter_five
+    # if this is a lathe we need to rearrange some button and add a additional DRO
+    def _make_lathe(self):
+        print("**** GMOCCAPY build_GUI INFO ****")
+        print("**** we have a lathe here")
+
+        # if we have a lathe, we will need an additional DRO to display
+        # diameter and radius simultaneous, we will call that one Combi_DRO_9, as that value
+        # should never be used due to the limit in axis from 0 to 8
+        dro = Combi_DRO()
+        dro.set_property("name", "Combi_DRO_9")
+        dro.set_property("abs_color", gtk.gdk.color_parse(self.abs_color))
+        dro.set_property("rel_color", gtk.gdk.color_parse(self.rel_color))
+        dro.set_property("dtg_color", gtk.gdk.color_parse(self.dtg_color))
+        dro.set_property("homed_color", gtk.gdk.color_parse(self.homed_color))
+        dro.set_property("unhomed_color", gtk.gdk.color_parse(self.unhomed_color))
+        dro.set_property("actual", self.dro_actual)
+
+        joint = self._get_joint_from_joint_axis_dic("x")
+        dro.set_joint_no(joint)
+        dro.set_axis("x")
+        dro.change_axisletter("D")
+        dro.set_property("diameter", True)
+        dro.show()
+
+        dro.connect("clicked", self._on_DRO_clicked)
+        self.dro_dic[dro.name] = dro
+
+        self.dro_dic["Combi_DRO_0"].change_axisletter("R")
+
+        # For gremlin we don"t need the following button
+        if self.backtool_lathe:
+            self.widgets.rbt_view_y2.set_active(True)
+            self.widgets.gremlin.set_property("view", "y2")
+            self.prefs.putpref("gremlin_view", "rbt_view_y2")
         else:
-            axis = "Unknown"
-            message = _("Offset {0} could not be set, because off unknown axis").format(axis)
-            self.dialogs.warning_dialog(self, _("Wrong offset setting!"), message)
-            return
-        if self.gui.lathe_mode and axis == "x":
-            if self.diameter_mode:
-                preset = self.prefs.getpref("diameter offset_axis_{0}".format(axis), 0, float)
-                offset = self.dialogs.entry_dialog(self, data = preset, header = _("Enter value for diameter"),
-                                                   label = _("Set diameter to:"), integer = False)
-            else:
-                preset = self.prefs.getpref("radius offset_axis_{0}".format(axis), 0, float)
-                offset = self.dialogs.entry_dialog(self, data = preset, header = _("Enter value for radius"),
-                                                   label = _("Set radius to:"), integer = False)
-        else:
-            preset = self.prefs.getpref("offset_axis_{0}".format(axis), 0, float)
-            offset = self.dialogs.entry_dialog(self, data = preset, header = _("Enter value for axis {0}").format(axis),
-                                               label = _("Set axis {0} to:").format(axis), integer = False)
-        if offset == "CANCEL":
-            return
-        elif offset == "ERROR":
-            print(_("Conversion error in btn_set_value"))
-            self.dialogs.warning_dialog(self, _("Conversion error in btn_set_value!"),
-                                        _("Please enter only numerical values. Values have not been applied"))
-        else:
-            self.command.mode(linuxcnc.MODE_MDI)
-            self.command.wait_complete()
-            command = "G10 L20 P0 {0}{1:f}".format(axis, offset)
-            self.command.mdi(command)
-            self.widgets.hal_action_reload.emit("activate")
-            self.command.mode(linuxcnc.MODE_MANUAL)
-            self.command.wait_complete()
-            self.prefs.putpref("offset_axis_{0}".format(axis), offset, float)
+            self.widgets.rbt_view_y.set_active(True)
+            self.widgets.gremlin.set_property("view", "y")
+            self.prefs.putpref("gremlin_view", "rbt_view_y")
+
+        self.widgets.rbt_view_p.hide()
+        self.widgets.rbt_view_x.hide()
+        self.widgets.rbt_view_z.hide()
+        self.widgets.rbt_view_y2.show()
+                
+#    def _on_btn_set_value_clicked(self, widget, data = None):
+#        if widget == self.widgets.btn_set_value_x:
+#            axis = "x"
+#        elif widget == self.widgets.btn_set_value_y:
+#            axis = "y"
+#        elif widget == self.widgets.btn_set_value_z:
+#            axis = "z"
+#        elif widget == self.widgets.btn_set_value_4:
+#            axis = self.axisletter_four
+#        elif widget == self.widgets.btn_set_value_5:
+#            axis = self.axisletter_five
+#        else:
+#            axis = "Unknown"
+#            message = _("Offset {0} could not be set, because off unknown axis").format(axis)
+#            self.dialogs.warning_dialog(self, _("Wrong offset setting!"), message)
+#            return
+#        if self.gui.lathe_mode and axis == "x":
+#            if self.diameter_mode:
+#                preset = self.prefs.getpref("diameter offset_axis_{0}".format(axis), 0, float)
+#                offset = self.dialogs.entry_dialog(self, data = preset, header = _("Enter value for diameter"),
+#                                                   label = _("Set diameter to:"), integer = False)
+#            else:
+#                preset = self.prefs.getpref("radius offset_axis_{0}".format(axis), 0, float)
+#                offset = self.dialogs.entry_dialog(self, data = preset, header = _("Enter value for radius"),
+#                                                   label = _("Set radius to:"), integer = False)
+#        else:
+#            preset = self.prefs.getpref("offset_axis_{0}".format(axis), 0, float)
+#            offset = self.dialogs.entry_dialog(self, data = preset, header = _("Enter value for axis {0}").format(axis),
+#                                               label = _("Set axis {0} to:").format(axis), integer = False)
+#        if offset == "CANCEL":
+#            return
+#        elif offset == "ERROR":
+#            print(_("Conversion error in btn_set_value"))
+#            self.dialogs.warning_dialog(self, _("Conversion error in btn_set_value!"),
+#                                        _("Please enter only numerical values. Values have not been applied"))
+#        else:
+#            self.command.mode(linuxcnc.MODE_MDI)
+#            self.command.wait_complete()
+#            command = "G10 L20 P0 {0}{1:f}".format(axis, offset)
+#            self.command.mdi(command)
+#            self.widgets.hal_action_reload.emit("activate")
+#            self.command.mode(linuxcnc.MODE_MANUAL)
+#            self.command.wait_complete()
+#            self.prefs.putpref("offset_axis_{0}".format(axis), offset, float)
 
     def _on_btn_jog_pressed(self, widget, axis, direction):
         print(widget, axis, direction)
@@ -633,8 +654,9 @@ class Build_GUI(gobject.GObject):
         for child in children:
             self.macro_dic[child.name] = child
 
-# =============================================================
-# Onboard keybord handling Start
+###############################################################################
+##                        Onboard keybord handling                          ##
+###############################################################################
 
     # shows "onboard" or "matchbox" virtual keyboard if available
     # else error message
@@ -702,23 +724,6 @@ class Build_GUI(gobject.GObject):
             except:
                 pass
 
-# Onboard keyboard handling End
-# =============================================================
-
-    # init the preview
-    def _init_gremlin(self):
-        grid_size = self.prefs.getpref('grid_size', 1.0, float)
-        self.widgets.grid_size.set_value(grid_size)
-        self.widgets.gremlin.grid_size = grid_size
-        view = self.prefs.getpref('view', "p", str)
-        print("got view ",view)
-        self.widgets.gremlin.set_property("view", view)
-        self.widgets.gremlin.set_property("metric_units", int( self.metric))
-        self.widgets.gremlin.set_property("mouse_btn_mode", self.prefs.getpref("mouse_btn_mode", 4, int))
-        self.widgets.gremlin.set_property("use_commanded", not self.dro_actual)
-        self.widgets.eb_program_label.modify_bg(gtk.STATE_NORMAL, gtk.gdk.Color(0, 0, 0))
-        self.widgets.eb_blockheight_label.modify_bg(gtk.STATE_NORMAL, gtk.gdk.Color(0, 0, 0))
-        self.widgets.rbt_view_y2.hide()
 
 ###############################################################################
 ##                        hide or display widgets                            ##
@@ -783,10 +788,6 @@ class Build_GUI(gobject.GObject):
             dic[name].hide()
             box.pack_start(dic[name])
 
-###############################################################################
-##                       internal button handling                            ##
-###############################################################################
-
 
 ###############################################################################
 ##                       internal button handling                            ##
@@ -813,155 +814,154 @@ class Build_GUI(gobject.GObject):
 #            self.widgets.chk_ignore_limits.set_sensitive(False)
 #            self.widgets.tbtn_on.set_active(False)
 
-        self.emit("estop_active", not state)
+#        self.emit("estop_active", not state)
 
-    # toggle machine on / off button
-    def on_tbtn_on_toggled(self, widget, data=None):
-        print("build GUI  on toggled", widget.get_active())
-        self.emit("on_active", widget.get_active())
-
-    # The mode buttons
-    def on_rbt_manual_pressed(self, widget, data=None):
-        print("build GUI manual pressed")
-        self.emit("set_manual")
-
-    def on_rbt_mdi_pressed(self, widget, data=None):
-        print("build GUI mdi pressed")
-        self.emit("set_mdi")
-
-    def on_rbt_auto_pressed(self, widget, data=None):
-        print("build GUI auto pressed")
-        self.emit("set_auto")
-
-    def on_tbtn_setup_toggled(self, widget, data=None):
-        # first we set to manual mode, as we do not allow changing settings in other modes
-        # otherwise external halui commands could start a program while we are in settings
-        self.emit("set_manual")
-        
-        if widget.get_active():
-            # deactivate the mode buttons, so changing modes is not possible while we are in settings mode
-            self.widgets.rbt_manual.set_sensitive(False)
-            self.widgets.rbt_mdi.set_sensitive(False)
-            self.widgets.rbt_auto.set_sensitive(False)
-            code = False
-            # here the user don"t want an unlock code
-            if self.widgets.rbt_no_unlock.get_active():
-                code = True
-            # if hal pin is true, we are allowed to enter settings, this may be
-            # realized using a key switch
-            if self.widgets.rbt_hal_unlock.get_active() and self.halcomp["unlock-settings"]:
-                code = True
-            # else we ask for the code using the system.dialog
-            if self.widgets.rbt_use_unlock.get_active():
-                if self.dialogs.system_dialog(self):
-                    code = True
-            # Lets see if the user has the right to enter settings
-            if code:
-                self.widgets.ntb_main.set_current_page(1)
-                self.widgets.ntb_setup.set_current_page(0)
-                self.widgets.ntb_button.set_current_page(_BB_SETUP)
-            else:
-                if self.widgets.rbt_hal_unlock.get_active():
-                    message = _("Hal Pin is low, Access denied")
-                else:
-                    message = _("wrong code entered, Access denied")
-                self.dialogs.warning_dialog(self, _("Just to warn you"), message)
-                self.widgets.tbtn_setup.set_active(False)
-        else:
-            # check witch button should be sensitive, depending on the state of the machine
-            if self.estop_active:
-                # estoped no mode available
-                self.widgets.rbt_manual.set_sensitive(False)
-                self.widgets.rbt_mdi.set_sensitive(False)
-                self.widgets.rbt_auto.set_sensitive(False)
-            if self.machine_on and not self.all_homed:
-                # machine on, but not homed, only manual allowed
-                self.widgets.rbt_manual.set_sensitive(True)
-                self.widgets.rbt_mdi.set_sensitive(False)
-                self.widgets.rbt_auto.set_sensitive(False)
-            if self.machine_on and (self.all_homed or self.no_force_homing):
-                # all OK, make all modes available
-                self.widgets.rbt_manual.set_sensitive(True)
-                self.widgets.rbt_mdi.set_sensitive(True)
-                self.widgets.rbt_auto.set_sensitive(True)
-            # this is needed here, because we do not
-            # change mode, so on_hal_status_manual will not be called
-            self.widgets.ntb_main.set_current_page(0)
-            self.widgets.ntb_button.set_current_page(_BB_MANUAL)
-            self.widgets.ntb_info.set_current_page(0)
-            self.widgets.ntb_jog.set_current_page(0)
-
-            # if we are in user tabs, we must reset the button
-            if self.widgets.tbtn_user_tabs.get_active():
-                self.widgets.tbtn_user_tabs.set_active(False)
-
-    # Show or hide the user tabs
-    def on_tbtn_user_tabs_toggled(self, widget, data=None):
-        if widget.get_active():
-            self.widgets.ntb_main.set_current_page(2)
-            self.widgets.tbtn_fullsize_preview.set_sensitive(False)
-        else:
-            self.widgets.ntb_main.set_current_page(0)
-            self.widgets.tbtn_fullsize_preview.set_sensitive(True)
+#    # toggle machine on / off button
+#    def on_tbtn_on_toggled(self, widget, data=None):
+#        print("build GUI  on toggled", widget.get_active())
+#        self.emit("on_active", widget.get_active())
+#
+#    # The mode buttons
+#    def on_rbt_manual_pressed(self, widget, data=None):
+#        print("build GUI manual pressed")
+#        self.emit("set_manual")
+#
+#    def on_rbt_mdi_pressed(self, widget, data=None):
+#        print("build GUI mdi pressed")
+#        self.emit("set_mdi")
+#
+#    def on_rbt_auto_pressed(self, widget, data=None):
+#        print("build GUI auto pressed")
+#        self.emit("set_auto")
+#
+#    def on_tbtn_setup_toggled(self, widget, data=None):
+#        # first we set to manual mode, as we do not allow changing settings in other modes
+#        # otherwise external halui commands could start a program while we are in settings
+#        self.emit("set_manual")
+#        
+#        if widget.get_active():
+#            # deactivate the mode buttons, so changing modes is not possible while we are in settings mode
+#            self.widgets.rbt_manual.set_sensitive(False)
+#            self.widgets.rbt_mdi.set_sensitive(False)
+#            self.widgets.rbt_auto.set_sensitive(False)
+#            code = False
+#            # here the user don"t want an unlock code
+#            if self.widgets.rbt_no_unlock.get_active():
+#                code = True
+#            # if hal pin is true, we are allowed to enter settings, this may be
+#            # realized using a key switch
+#            if self.widgets.rbt_hal_unlock.get_active() and self.unlock-settings"]:
+#                code = True
+#            # else we ask for the code using the system.dialog
+#            if self.widgets.rbt_use_unlock.get_active():
+#                if self.dialogs.system_dialog(self):
+#                    code = True
+#            # Lets see if the user has the right to enter settings
+#            if code:
+#                self.widgets.ntb_main.set_current_page(1)
+#                self.widgets.ntb_setup.set_current_page(0)
+#                self.widgets.ntb_button.set_current_page(_BB_SETUP)
+#            else:
+#                if self.widgets.rbt_hal_unlock.get_active():
+#                    message = _("Hal Pin is low, Access denied")
+#                else:
+#                    message = _("wrong code entered, Access denied")
+#                self.dialogs.warning_dialog(self, _("Just to warn you"), message)
+#                self.widgets.tbtn_setup.set_active(False)
+#        else:
+#            # check witch button should be sensitive, depending on the state of the machine
+#            if self.estop_active:
+#                # estoped no mode available
+#                self.widgets.rbt_manual.set_sensitive(False)
+#                self.widgets.rbt_mdi.set_sensitive(False)
+#                self.widgets.rbt_auto.set_sensitive(False)
+#            if self.machine_on and not self.all_homed:
+#                # machine on, but not homed, only manual allowed
+#                self.widgets.rbt_manual.set_sensitive(True)
+#                self.widgets.rbt_mdi.set_sensitive(False)
+#                self.widgets.rbt_auto.set_sensitive(False)
+#            if self.machine_on and (self.all_homed or self.no_force_homing):
+#                # all OK, make all modes available
+#                self.widgets.rbt_manual.set_sensitive(True)
+#                self.widgets.rbt_mdi.set_sensitive(True)
+#                self.widgets.rbt_auto.set_sensitive(True)
+#            # this is needed here, because we do not
+#            # change mode, so on_hal_status_manual will not be called
+#            self.widgets.ntb_main.set_current_page(0)
+#            self.widgets.ntb_button.set_current_page(_BB_MANUAL)
+#            self.widgets.ntb_info.set_current_page(0)
+#            self.widgets.ntb_jog.set_current_page(0)
+#
+#            # if we are in user tabs, we must reset the button
+#            if self.widgets.tbtn_user_tabs.get_active():
+#                self.widgets.tbtn_user_tabs.set_active(False)
+#
+#    # Show or hide the user tabs
+#    def on_tbtn_user_tabs_toggled(self, widget, data=None):
+#        if widget.get_active():
+#            self.widgets.ntb_main.set_current_page(2)
+#            self.widgets.tbtn_fullsize_preview.set_sensitive(False)
+#        else:
+#            self.widgets.ntb_main.set_current_page(0)
+#            self.widgets.tbtn_fullsize_preview.set_sensitive(True)
 
 ###############################################################################
 ##                       internal button handling                            ##
 ##                       bottom buttons (manual)                             ##
 ###############################################################################
 
-    # display the homing button
-    def on_btn_homing_clicked(self, widget, data=None):
-        self.widgets.ntb_button.set_current_page(_BB_HOME)
-
-    # display the offste button
-    def on_btn_touch_clicked(self, widget, data=None):
-        self.widgets.ntb_button.set_current_page(_BB_TOUCH_OFF)
-        self._show_offset_tab(True)
-        if self.widgets.rbtn_show_preview.get_active():
-            self.widgets.ntb_preview.set_current_page(0)
-
-    # display the tool button
-    def on_btn_tool_clicked(self, widget, data=None):
-        if self.widgets.tbtn_fullsize_preview.get_active():
-            self.widgets.tbtn_fullsize_preview.set_active(False)
-        self.widgets.ntb_button.set_current_page(_BB_TOOL)
-        self._show_tooledit_tab(True)
-
-    def on_tbtn_switch_mode_toggled(self, widget):
-        if widget.get_active():
-            self.widgets.tbtn_switch_mode.set_label(_(" Joint\nmode"))
-            # Mode 1 = joint ; Mode 2 = MDI ; Mode 3 = teleop
-            # so in mode 1 we have to show Joints and in Modes 2 and 3 axis values
-            self.emit("set_motion_mode", 0)
-        else:
-            self.widgets.tbtn_switch_mode.set_label(_("World\nmode"))
-            self.emit("set_motion_mode", 1)
-
-    def on_tbtn_fullsize_preview_toggled(self, widget, data=None):
-        if widget.get_active():
-            self.widgets.box_info.hide()
-            self.widgets.vbx_jog.hide()
-            dro = self.dro_dic[self.dro_dic.keys()[0]]
-            self.widgets.gremlin.set_property("metric_units", dro.metric_units)
-            self.widgets.gremlin.set_property("enable_dro", True)
-            if self.lathe_mode:
-                self.widgets.gremlin.set_property("show_lathe_radius", not self.diameter_mode)
-        else:
-            self.widgets.box_info.show()
-            self.widgets.vbx_jog.show()
-            if not self.widgets.chk_show_dro.get_active():
-                self.widgets.gremlin.set_property("enable_dro", False)
-
-    # If button exit is clicked, press emergency button before closing the application
-    def on_btn_exit_clicked(self, widget, data=None):
-        self.widgets.window1.destroy()
+#    # display the homing button
+#    def on_btn_homing_clicked(self, widget, data=None):
+#        self.widgets.ntb_button.set_current_page(_BB_HOME)
+#
+#    # display the offste button
+#    def on_btn_touch_clicked(self, widget, data=None):
+#        self.widgets.ntb_button.set_current_page(_BB_TOUCH_OFF)
+#        self._show_offset_tab(True)
+#        if self.widgets.rbtn_show_preview.get_active():
+#            self.widgets.ntb_preview.set_current_page(0)
+#
+#    # display the tool button
+#    def on_btn_tool_clicked(self, widget, data=None):
+#        if self.widgets.tbtn_fullsize_preview.get_active():
+#            self.widgets.tbtn_fullsize_preview.set_active(False)
+#        self.widgets.ntb_button.set_current_page(_BB_TOOL)
+#        self._show_tooledit_tab(True)
+#
+#    def on_tbtn_switch_mode_toggled(self, widget):
+#        if widget.get_active():
+#            self.widgets.tbtn_switch_mode.set_label(_(" Joint\nmode"))
+#            # Mode 1 = joint ; Mode 2 = MDI ; Mode 3 = teleop
+#            # so in mode 1 we have to show Joints and in Modes 2 and 3 axis values
+#            self.emit("set_motion_mode", 0)
+#        else:
+#            self.widgets.tbtn_switch_mode.set_label(_("World\nmode"))
+#            self.emit("set_motion_mode", 1)
+#
+#    def on_tbtn_fullsize_preview_toggled(self, widget, data=None):
+#        if widget.get_active():
+#            self.widgets.box_info.hide()
+#            self.widgets.vbx_jog.hide()
+#            dro = self.dro_dic[self.dro_dic.keys()[0]]
+#            self.widgets.gremlin.set_property("metric_units", dro.metric_units)
+#            self.widgets.gremlin.set_property("enable_dro", True)
+#            if self.lathe_mode:
+#                self.widgets.gremlin.set_property("show_lathe_radius", not self.diameter_mode)
+#        else:
+#            self.widgets.box_info.show()
+#            self.widgets.vbx_jog.show()
+#            if not self.widgets.chk_show_dro.get_active():
+#                self.widgets.gremlin.set_property("enable_dro", False)
+#
+#    # If button exit is clicked, press emergency button before closing the application
+#    def on_btn_exit_clicked(self, widget, data=None):
+#        self.widgets.window1.destroy()
 
 
 ###############################################################################
 ##                       internal button handling                            ##
 ##                       bottom buttons (homing)                             ##
 ###############################################################################
-
 
          # ToDo Start : must fit also the joints button
     def _on_btn_previous_clicked(self, widget):
@@ -1037,13 +1037,13 @@ class Build_GUI(gobject.GObject):
         if "axis" in widget.name:
             value = widget.name[-1]
             # now get the joint from directory by the value
-            joint = self._get_joint_from_joint_axis_dic(value)
+            joint_or_axis = self._get_joint_from_joint_axis_dic(value)
         elif "joint" in widget.name:
-            joint = int(widget.name[-1])
+            joint_or_axis = int(widget.name[-1])
         elif "all" in widget.name:
-            joint = -1
+            joint_or_axis = -1
 
-        self.emit("home_clicked", joint)
+        self.emit("home_clicked", joint_or_axis)
 
     def _on_btn_unhome_clicked(self, widget):
         self.emit("unhome_clicked", -1)
@@ -1184,89 +1184,89 @@ class Build_GUI(gobject.GObject):
 
 
 
-###############################################################################
-##                       internal button handling                            ##
-##                         bottom buttons (setup)                            ##
-###############################################################################
-# this are hal-tools copied from gsreen function
-    def on_btn_show_hal_clicked(self, widget, data=None):
-        p = os.popen("tclsh {0}/bin/halshow.tcl &".format(TCLPATH))
-
-    def on_btn_calibration_clicked(self, widget, data=None):
-        p = os.popen("tclsh {0}/bin/emccalib.tcl -- -ini {1} > /dev/null &".format(TCLPATH, sys.argv[2]), "w")
-
-    def on_btn_hal_meter_clicked(self, widget, data=None):
-        p = os.popen("halmeter &")
-
-    def on_btn_status_clicked(self, widget, data=None):
-        p = os.popen("linuxcnctop  > /dev/null &", "w")
-
-    def on_btn_hal_scope_clicked(self, widget, data=None):
-        p = os.popen("halscope  > /dev/null &", "w")
-
-    def on_btn_classicladder_clicked(self, widget, data=None):
-        if hal.component_exists("classicladder_rt"):
-            p = os.popen("classicladder  &", "w")
-        else:
-            self.dialogs.warning_dialog(self, _("INFO:"),
-                                   _("Classicladder real-time component not detected"))
-
-
-###############################################################################
-##                       internal button handling                            ##
-##                           gremlin buttons                                 ##
-###############################################################################
-
-    def on_rbt_view_p_toggled(self, widget):
-        if self.widgets.rbt_view_p.get_active():
-            self.widgets.gremlin.set_property("view", "p")
-        self.prefs.putpref("gremlin_view", "rbt_view_p")
-        self.prefs.putpref("view", "p")
-
-    def on_rbt_view_x_toggled(self, widget):
-        if self.widgets.rbt_view_x.get_active():
-            self.widgets.gremlin.set_property("view", "x")
-        self.prefs.putpref("gremlin_view", "rbt_view_x")
-        self.prefs.putpref("view", "x")
-
-    def on_rbt_view_y_toggled(self, widget):
-        if self.widgets.rbt_view_y.get_active():
-            self.widgets.gremlin.set_property("view", "y")
-        self.prefs.putpref("gremlin_view", "rbt_view_y")
-        self.prefs.putpref("view", "y")
-
-    def on_rbt_view_z_toggled(self, widget):
-        if self.widgets.rbt_view_z.get_active():
-            self.widgets.gremlin.set_property("view", "z")
-        self.prefs.putpref("gremlin_view", "rbt_view_z")
-        self.prefs.putpref("view", "z")
-
-    def on_rbt_view_y2_toggled(self, widget):
-        print("widget = ", widget.get_active())
-        if self.widgets.rbt_view_y2.get_active():
-            self.widgets.gremlin.set_property("view", "y2")
-        self.prefs.putpref("gremlin_view", "rbt_view_y2")
-        self.prefs.putpref("view", "y2")
-
-    def on_btn_zoom_in_clicked(self, widget):
-        self.widgets.gremlin.zoom_in()
-
-    def on_btn_zoom_out_clicked(self, widget):
-        self.widgets.gremlin.zoom_out()
-
-    def on_btn_delete_view_clicked(self, widget):
-        self.widgets.gremlin.clear_live_plotter()
-
-    def on_tbtn_view_dimension_toggled(self, widget):
-        self.widgets.gremlin.set_property("show_extents_option", widget.get_active())
-        self.prefs.putpref("view_dimension", self.widgets.tbtn_view_dimension.get_active())
-
-    def on_tbtn_view_tool_path_toggled(self, widget):
-        self.widgets.gremlin.set_property("show_live_plot", widget.get_active())
-        self.prefs.putpref("view_tool_path", self.widgets.tbtn_view_tool_path.get_active())
-
-    def on_gremlin_line_clicked(self, widget, line):
-        self.widgets.gcode_view.set_line_number(line)
+################################################################################
+###                       internal button handling                            ##
+###                         bottom buttons (setup)                            ##
+################################################################################
+## this are hal-tools copied from gsreen function
+#    def on_btn_show_hal_clicked(self, widget, data=None):
+#        p = os.popen("tclsh {0}/bin/halshow.tcl &".format(TCLPATH))
+#
+#    def on_btn_calibration_clicked(self, widget, data=None):
+#        p = os.popen("tclsh {0}/bin/emccalib.tcl -- -ini {1} > /dev/null &".format(TCLPATH, sys.argv[2]), "w")
+#
+#    def on_btn_hal_meter_clicked(self, widget, data=None):
+#        p = os.popen("halmeter &")
+#
+#    def on_btn_status_clicked(self, widget, data=None):
+#        p = os.popen("linuxcnctop  > /dev/null &", "w")
+#
+#    def on_btn_hal_scope_clicked(self, widget, data=None):
+#        p = os.popen("halscope  > /dev/null &", "w")
+#
+#    def on_btn_classicladder_clicked(self, widget, data=None):
+#        if hal.component_exists("classicladder_rt"):
+#            p = os.popen("classicladder  &", "w")
+#        else:
+#            self.dialogs.warning_dialog(self, _("INFO:"),
+#                                   _("Classicladder real-time component not detected"))
+#
+#
+################################################################################
+###                       internal button handling                            ##
+###                           gremlin buttons                                 ##
+################################################################################
+#
+#    def on_rbt_view_p_toggled(self, widget):
+#        if self.widgets.rbt_view_p.get_active():
+#            self.widgets.gremlin.set_property("view", "p")
+#        self.prefs.putpref("gremlin_view", "rbt_view_p")
+#        self.prefs.putpref("view", "p")
+#
+#    def on_rbt_view_x_toggled(self, widget):
+#        if self.widgets.rbt_view_x.get_active():
+#            self.widgets.gremlin.set_property("view", "x")
+#        self.prefs.putpref("gremlin_view", "rbt_view_x")
+#        self.prefs.putpref("view", "x")
+#
+#    def on_rbt_view_y_toggled(self, widget):
+#        if self.widgets.rbt_view_y.get_active():
+#            self.widgets.gremlin.set_property("view", "y")
+#        self.prefs.putpref("gremlin_view", "rbt_view_y")
+#        self.prefs.putpref("view", "y")
+#
+#    def on_rbt_view_z_toggled(self, widget):
+#        if self.widgets.rbt_view_z.get_active():
+#            self.widgets.gremlin.set_property("view", "z")
+#        self.prefs.putpref("gremlin_view", "rbt_view_z")
+#        self.prefs.putpref("view", "z")
+#
+#    def on_rbt_view_y2_toggled(self, widget):
+#        print("widget = ", widget.get_active())
+#        if self.widgets.rbt_view_y2.get_active():
+#            self.widgets.gremlin.set_property("view", "y2")
+#        self.prefs.putpref("gremlin_view", "rbt_view_y2")
+#        self.prefs.putpref("view", "y2")
+#
+#    def on_btn_zoom_in_clicked(self, widget):
+#        self.widgets.gremlin.zoom_in()
+#
+#    def on_btn_zoom_out_clicked(self, widget):
+#        self.widgets.gremlin.zoom_out()
+#
+#    def on_btn_delete_view_clicked(self, widget):
+#        self.widgets.gremlin.clear_live_plotter()
+#
+#    def on_tbtn_view_dimension_toggled(self, widget):
+#        self.widgets.gremlin.set_property("show_extents_option", widget.get_active())
+#        self.prefs.putpref("view_dimension", self.widgets.tbtn_view_dimension.get_active())
+#
+#    def on_tbtn_view_tool_path_toggled(self, widget):
+#        self.widgets.gremlin.set_property("show_live_plot", widget.get_active())
+#        self.prefs.putpref("view_tool_path", self.widgets.tbtn_view_tool_path.get_active())
+#
+#    def on_gremlin_line_clicked(self, widget, line):
+#        self.widgets.gcode_view.set_line_number(line)
 
 
 ###############################################################################
@@ -1276,51 +1276,19 @@ class Build_GUI(gobject.GObject):
 
 
 ###############################################################################
+##                            signal handling                                ##
+###############################################################################
+
+    def _jog_increment_changed(self, widget, increment):
+        print("widget = ", widget.name)
+        print("jog_incr_dic = ", self.incr_dic)
+        print("increment = ", increment)
+        self.emit("jog_incr_changed", increment)
+
+###############################################################################
 ##                       internal event handling                             ##
 ##                           in no category                                  ##
 ###############################################################################
-    # There are some settings we can only do if the window is on the screen already
-    def on_window1_show(self, widget):
-
-        # if a file should be loaded, we will do so
-        file = self.prefs.getpref("open_file", "", str)
-        if file:
-            self.widgets.file_to_load_chooser.set_filename(file)
-            self.widgets.hal_action_open.load_file(file)
-
-        # check how to start the GUI
-        start_as = "rbtn_" + self.prefs.getpref("screen1", "window", str)
-        self.widgets[start_as].set_active(True)
-        if start_as == "rbtn_fullscreen":
-            self.widgets.window1.fullscreen()
-        elif start_as == "rbtn_maximized":
-            self.widgets.window1.maximize()
-        else:
-            self.xpos = int(self.prefs.getpref("x_pos", 40, float))
-            self.ypos = int(self.prefs.getpref("y_pos", 30, float))
-            self.width = int(self.prefs.getpref("width", 979, float))
-            self.height = int(self.prefs.getpref("height", 750, float))
-
-            # set the adjustments according to Window position and size
-            self.widgets.adj_x_pos.set_value(self.xpos)
-            self.widgets.adj_y_pos.set_value(self.ypos)
-            self.widgets.adj_width.set_value(self.width)
-            self.widgets.adj_height.set_value(self.height)
-
-            # move and resize the window
-            self.widgets.window1.move(self.xpos, self.ypos)
-            self.widgets.window1.resize(self.width, self.height)
-
-        self.initialized = True
-
-# ToDo : Start - do we realy need screen 2?
-
-#        # does the user want to show screen2
-#        self._check_screen2()
-#        if self.screen2:
-#            self.widgets.tbtn_use_screen2.set_active(self.prefs.getpref("use_screen2", False, bool))
-
-# ToDo : End - do we realy need screen 2?
 
     def _on_DRO_clicked(self, widget, joint, order):
         for dro in self.dro_dic:
@@ -1430,7 +1398,7 @@ class Build_GUI(gobject.GObject):
     def get_widget_from_dic(self, dic, name):
         print dic
         return dic.keys()[dic.values().index(name)]
-        
+
     def _arrange_dro(self):
         # if we have less than 4 axis, we can resize the table, as we have 
         # enough space to display each one in it's own line
@@ -1584,6 +1552,33 @@ class Build_GUI(gobject.GObject):
 
             print("Jog Button = {0}".format(name))
             print("Position = {0},{1}".format(col,row))
+            
+#        if self.lathe_mode:
+#            # OK this is a lathe, lets see if it is a backtool_lathe
+#            if self.backtool_lathe:
+#                # Now we are sure we have a backtool lathe
+#                # as we only expect X an Z, lets place them in the table
+#                for btn in btnlst:
+#                    name = btn.get_property("name")
+#                    if name == "x+":
+#                        col = 1
+#                        row = 0
+#                    if name == "x-":
+#                        col = 1
+#                        row = 2
+#                    if name == "y+":
+#                        col = 2
+#                        row = 0
+#                    if name == "y-":
+#                        col = 0
+#                        row = 2
+#                    if name == "z+":
+#                        col = 0
+#                        row = 1
+#                    if name == "z-":
+#                        col = 2
+#                        row = 1
+
 
     def _get_ini_data(self):
         # get the axis list from INI
@@ -1671,81 +1666,6 @@ class Build_GUI(gobject.GObject):
         self._show_tooledit_tab(False)
         self._show_iconview_tab(False)
 
-    # This is used to reload the tool in spindle after starting the GUI
-    # This is called from the all_homed_signal
-    def _reload_tool(self):
-        tool_to_load = self.prefs.getpref("tool_in_spindle", 0, int)
-        if tool_to_load == 0:
-            return
-        self.load_tool = True
-        self.tool_change = True
-
-        self.emit("set_mdi")
-        sleep(0.1)
-        command = "M61 Q {0} G43".format(tool_to_load)
-        self.emit("mdi_command",command)
-        sleep(0.1)
-
-    def _update_toolinfo(self, tool):
-        toolinfo = self.widgets.tooledit1.get_toolinfo(tool)
-        if toolinfo:
-            # Doku
-            # toolinfo[0] = cell toggle
-            # toolinfo[1] = tool number
-            # toolinfo[2] = pocket number
-            # toolinfo[3] = X offset
-            # toolinfo[4] = Y offset
-            # toolinfo[5] = Z offset
-            # toolinfo[6] = A offset
-            # toolinfo[7] = B offset
-            # toolinfo[8] = C offset
-            # toolinfo[9] = U offset
-            # toolinfo[10] = V offset
-            # toolinfo[11] = W offset
-            # toolinfo[12] = tool diameter
-            # toolinfo[13] = frontangle
-            # toolinfo[14] = backangle
-            # toolinfo[15] = tool orientation
-            # toolinfo[16] = tool info
-            self.widgets.lbl_tool_no.set_text(str(toolinfo[1]))
-            self.widgets.lbl_tool_dia.set_text(toolinfo[12])
-            self.halcomp["tool-diameter"] = float(locale.atof(toolinfo[12]))
-            self.widgets.lbl_tool_name.set_text(toolinfo[16])
-
-        # we do not allow touch off with no tool mounted, so we set the
-        # corresponding widgets unsensitized and set the description accordingly
-        if tool <= 0:
-            self.widgets.lbl_tool_no.set_text("0")
-            self.widgets.lbl_tool_dia.set_text("0")
-            self.widgets.lbl_tool_name.set_text(_("No tool description available"))
-            self.widgets.btn_tool_touchoff_x.set_sensitive(False)
-            self.widgets.btn_tool_touchoff_z.set_sensitive(False)
-        else:
-            self.widgets.btn_tool_touchoff_x.set_sensitive(True)
-            self.widgets.btn_tool_touchoff_z.set_sensitive(True)
-
-        if self.load_tool:
-            self.load_tool = False
-            self.on_hal_status_interp_idle(None)
-            return
-
-        if "G43" in self.active_gcodes and self.mode != "AUTO":
-            self.emit("set_mdi")
-            sleep(0.1)
-            self.emit("mdi_command","G43")
-            sleep(0.1)
-
-    def offset_changed(self, tooloffset):
-        dro = self.dro_dic[self.dro_dic.keys()[0]]
-        try: 
-            if dro.machine_units == _MM:
-                self.widgets.lbl_tool_offset_z.set_text("{0:.3f}".format(tooloffset[1]))
-                self.widgets.lbl_tool_offset_x.set_text("{0:.3f}".format(tooloffset[0]))
-            else:
-                self.widgets.lbl_tool_offset_z.set_text("{0:.4f}".format(tooloffset[1]))
-                self.widgets.lbl_tool_offset_x.set_text("{0:.4f}".format(tooloffset[0]))
-        except:
-            print("We do not have a X axis, very strange")
 
     def switch_to_g7(self, state):
         # we do this only if we have a lathe, the check for lathe is done in gmoccapy
@@ -1768,291 +1688,6 @@ class Build_GUI(gobject.GObject):
             self.diameter_mode = False
 
         print("diameter mode = {0}".format(self.diameter_mode))
-
-###############################################################################
-##                            signal handling                                ##
-###############################################################################
-
-    # kill keyboard and estop machine before closing
-    def on_window1_destroy(self, widget, data=None):
-        print "estoping / killing gmoccapy"
-        if self.onboard:
-            self._kill_keyboard()
-        self.emit("exit")
-   
-    def _jog_increment_changed(self, widget, increment):
-        print("widget = ", widget.name)
-        print("jog_incr_dic = ", self.incr_dic)
-        print("increment = ", increment)
-        self.emit("jog_incr_changed", increment)
-
-
-        
-###############################################################################
-##                        hal status handling                                ##
-###############################################################################
-
-    def on_hal_status_state_estop_reset(self, object):
-        print("GUI Builder estop_reset")
-        self.estop_active = False
-        self.widgets.tbtn_estop.set_active(True)
-        self.widgets.tbtn_estop.set_image(self.widgets.img_emergency_off)
-        self.widgets.tbtn_on.set_image(self.widgets.img_machine_off)
-        self.widgets.tbtn_on.set_sensitive(True)
-        self.widgets.chk_ignore_limits.set_sensitive(True)
-
-
-#        self._check_limits()
-
-        self.emit("set_manual")
-
-    def on_hal_status_state_estop(self, object):
-        print("GUI Builder estop")
-        self.estop_active = True
-        self.widgets.tbtn_estop.set_active(False)
-        self.widgets.tbtn_estop.set_image(self.widgets.img_emergency)
-        self.widgets.tbtn_on.set_image(self.widgets.img_machine_on)
-        self.widgets.tbtn_on.set_active(False)
-        self.widgets.tbtn_on.set_sensitive(False)
-        self.widgets.chk_ignore_limits.set_sensitive(False)
-
-    def on_hal_status_state_off(self, object):
-        print("GUI Builder machine OFF")
-        self.machine_on = False
-
-        self._toggle_on_off(False)
-        
-        if self.widgets.tbtn_on.get_active():
-            self.widgets.tbtn_on.set_active(False)
-            self.widgets.tbtn_on.set_image(self.widgets.img_machine_off)
-
-    def on_hal_status_state_on(self, object):
-        print("GUI Builder machine ON")
-        self.machine_on = True
-
-        self._toggle_on_off(True)
-
-        if not self.widgets.tbtn_on.get_active():
-            self.widgets.tbtn_on.set_active(True)
-            self.widgets.tbtn_on.set_image(self.widgets.img_machine_on)
-
-        self._reset_GUI()
-
-    def on_hal_status_mode_manual(self, object):
-        self.mode = "MAN"
-        print("GUI Builder Manual Mode")
-        self._reset_GUI()
-        self.widgets.rbt_manual.set_active(True)
-        # if setup page is activated, we must leave here, otherwise the pages will be reset
-        if self.widgets.tbtn_setup.get_active():
-            return
-        # if we are in user tabs, we must reset the button
-        if self.widgets.tbtn_user_tabs.get_active():
-            self.widgets.tbtn_user_tabs.set_active(False)
-        self.widgets.ntb_main.set_current_page(0)
-        self.widgets.ntb_button.set_current_page(_BB_MANUAL)
-        self.widgets.ntb_info.set_current_page(0)
-        self.widgets.ntb_jog.set_current_page(0)
-        #self._check_limits()
-        
-        # if the status changed, we reset the key event, otherwise the key press
-        # event will not change, if the user did the last change with keyboard 
-        # shortcut. This is caused, because we record the last key event to 
-        # avoid multiple key press events by holding down the key. I.e. One 
-        # press should only advance one increment on incremental jogging.
-        self.last_key_event = None, 0
-
-    def on_hal_status_mode_mdi(self, object):
-        self.mode = "MDI"
-        print("GUI Builder MDI Mode")
-        self._reset_GUI()
-        # self.tool_change is set only if the tool change was commanded
-        # from tooledit widget/page, so we do not want to switch the
-        # screen layout to MDI, but set the manual widgets
-        if self.tool_change:
-            self.widgets.ntb_main.set_current_page(0)
-            self.widgets.ntb_button.set_current_page(_BB_MANUAL)
-            self.widgets.ntb_info.set_current_page(0)
-            self.widgets.ntb_jog.set_current_page(0)
-            return
-        # if MDI button is not sensitive, we are not ready for MDI commands
-        # so we have to abort external commands and get back to manual mode
-        # This will happen mostly, if we are in settings mode, as we do disable the mode button
-        if not self.widgets.rbt_mdi.get_sensitive():
-            self.emit("mdi_abort")
-            self.emit("set_manual")
-            sleep(0.1)
-            self.emit("error",(13, _("It is not possible to change to MDI Mode at the moment")))
-            return
-
-        # if we are in user tabs, we must reset the button
-        if self.widgets.tbtn_user_tabs.get_active():
-            self.widgets.tbtn_user_tabs.set_active(False)
-        if self.widgets.chk_use_kb_on_mdi.get_active():
-            self.widgets.ntb_info.set_current_page(1)
-        else:
-            self.widgets.ntb_info.set_current_page(0)
-        self.widgets.ntb_main.set_current_page(0)
-        self.widgets.ntb_button.set_current_page(_BB_MDI)
-        self.widgets.ntb_jog.set_current_page(1)
-        self.widgets.hal_mdihistory.entry.grab_focus()
-        self.widgets.rbt_mdi.set_active(True)
-        
-        # if the status changed, we reset the key event, otherwise the key press
-        # event will not change, if the user did the last change with keyboard shortcut
-        # This is caused, because we record the last key event to avoid multiple key
-        # press events by holding down the key. I.e. One press should only advance one increment
-        # on incremental jogging.
-        self.last_key_event = None, 0
-
-    def on_hal_status_mode_auto(self, object):
-        self.mode = "AUTO"
-        print("GUI Builder MDI Mode")
-        self._reset_GUI()
-        # if Auto button is not sensitive, we are not ready for AUTO commands
-        # so we have to abort external commands and get back to manual mode
-        # This will happen mostly, if we are in settings mode, as we do disable the mode button
-        if not self.widgets.rbt_auto.get_sensitive():
-            self.emit("mdi_abort")
-            self.emit("set_manual")
-            sleep(0.1)
-            self.emit("error",(13, _("It is not possible to change to Auto Mode at the moment")))
-            return
-
-        # if we are in user tabs, we must reset the button
-        if self.widgets.tbtn_user_tabs.get_active():
-            self.widgets.tbtn_user_tabs.set_active(False)
-        self.widgets.ntb_main.set_current_page(0)
-        self.widgets.ntb_button.set_current_page(_BB_AUTO)
-        self.widgets.ntb_info.set_current_page(0)
-        self.widgets.ntb_jog.set_current_page(2)
-        self.widgets.rbt_auto.set_active(True)
-        
-        # if the status changed, we reset the key event, otherwise the key press
-        # event will not change, if the user did the last change with keyboard shortcut
-        # This is caused, because we record the last key event to avoid multiple key
-        # press events by holding down the key. I.e. One press should only advance one increment
-        # on incremental jogging.
-        self.last_key_event = None, 0
-
-    def on_hal_status_motion_mode_changed(self, object, new_mode):
-        print("GUI Builder motion Mode changed", new_mode)
-        # Motion mode change in identity kinematics makes no sense
-        # so we will not react on the signal and correct the misbehavior
-        # self.stat.motion_mode returns following values
-        # Mode 1 = joint ; Mode 2 = MDI ; Mode 3 = teleop
-        # so in mode 1 we have to show Joints and in Modes 2 and 3 axis values
-        self.motion_mode = new_mode
-
-        if new_mode == 1 and not self.trivial_kinematics:
-            self.widgets.gremlin.set_property("enable_dro", True)
-            self.widgets.gremlin.use_joints_mode = True
-            self.widgets.tbtn_switch_mode.set_active(True)
-            self.widgets.ntb_jog_JA.set_page(1)
-            state = False
-        else:
-            if not self.widgets.tbtn_fullsize_preview.get_active():
-                self.widgets.gremlin.set_property("enable_dro", False)
-            self.widgets.gremlin.use_joints_mode = False
-            self.widgets.tbtn_switch_mode.set_active(False)
-            self.widgets.ntb_jog_JA.set_page(0)
-            state = True
-        if not self.machine_on:
-            state = False
-
-        widgetlist = ("rbt_mdi", "rbt_auto")
-        self._sens_widgets(widgetlist, state)
-
-    def on_hal_status_interp_idle(self, object):
-        print("GUI Builder Interpreter IDLE")
-        self.interpreter = "IDLE"
-        if self.load_tool:
-            return
-        widgetlist = ["rbt_manual", "ntb_jog", "btn_from_line",
-                      "tbtn_flood", "tbtn_mist", "rbt_forward", "rbt_reverse", "rbt_stop",
-                      "btn_load", "btn_edit", "tbtn_optional_blocks"
-        ]
-        if not self.widgets.rbt_hal_unlock.get_active() and not self.user_mode:
-            widgetlist.append("tbtn_setup")
-        if self.all_homed or self.no_force_homing:
-            widgetlist.extend(["rbt_mdi", "rbt_auto", "btn_index_tool",
-                               "btn_change_tool", "btn_select_tool_by_no",
-                               "btn_tool_touchoff_x", "btn_tool_touchoff_z",
-                               "btn_touch"])
-        # This happen because hal_glib does emmit the signals in the order that idle is emited later that estop
-        if self.estop_active or self.machine_on == False:
-            self._sens_widgets(widgetlist, False)
-        else:
-            self._sens_widgets(widgetlist, True)
-        for widget in self.macro_dic:
-            self.macro_dic[widget].set_sensitive(True)
-
-## ToDo : add widgets to glade file or add them separate
-#        if self.onboard:
-#            self.macro_dic["keyboard"].set_image(self.widgets.img_keyboard)
-#        else:
-#            self.macro_dic["keyboard"].set_image(self.widgets.img_brake_macro)
-## ToDo : add widgets to glade file or add them separate
-
-        self.widgets.btn_run.set_sensitive(True)
-
-        if self.tool_change:
-            self.emit("set_manual")
-            sleep(0.1)
-            self.tool_change = False
-
-        self.halcomp["program.current-line"] = 0
-        self.halcomp["program.progress"] = 0.0
-
-
-    # use the hal_status widget to control buttons and
-    # actions allowed by the user and sensitive widgets
-    def on_hal_status_all_homed(self, object):
-        print("GUI Builder All homed")
-        self.all_homed = True
-        self.widgets.ntb_button.set_current_page(_BB_MANUAL)
-        widgetlist = ["rbt_mdi", "rbt_auto", "btn_index_tool", "btn_change_tool", "btn_select_tool_by_no",
-                      "btn_tool_touchoff_x", "btn_tool_touchoff_z", "btn_touch", "tbtn_switch_mode"
-        ]
-        self._sens_widgets(widgetlist, True)
-
-        if self.widgets.chk_reload_tool.get_active():
-            # if there is already a tool in spindle, the user 
-            # homed the second time, unfortunately we will then
-            # not get out of MDI mode any more
-            # That happen, because the tool in spindle did not change, so the 
-            # tool info is not updated and self.change_tool will not be reseted
-            if self.tool_in_spindle != 0:
-                return
-            self._reload_tool()
-
-        self.emit("set_motion_mode", 1)
-        sleep(0.1)
-        self.emit("set_manual")
-
-
-    def on_hal_status_not_all_homed(self, object, joints):
-        print("GUI Builder Not all homed")
-        self.all_homed = False
-        if self.no_force_homing:
-            return
-        widgetlist = ["rbt_mdi", "rbt_auto", "btn_index_tool", "btn_touch", "btn_change_tool", "btn_select_tool_by_no",
-                      "btn_tool_touchoff_x", "btn_tool_touchoff_z", "btn_touch", "tbtn_switch_mode"
-        ]
-        self._sens_widgets(widgetlist, False)
-
-        self.emit("set_motion_mode", 0)
-
-    def on_hal_status_tool_in_spindle_changed(self, object, new_tool_no):
-        print("GUI Builder tool in spindle changed")
-        # need to save the tool in spindle as preference, to be able to reload it on startup
-        self.prefs.putpref("tool_in_spindle", new_tool_no, int)
-        self._update_toolinfo(new_tool_no)
-
-    def on_hal_status_user_system_changed(self, object, system):
-        print("GUI Builder user system changed")
-        print("System is now ", system)
-        self.system = self.system_dic[system]
 
 
 ###############################################################################
@@ -2141,8 +1776,8 @@ class Build_GUI(gobject.GObject):
         # this sets the background colors of several buttons
         # the colors are different for the states of the button
         self.widgets.tbtn_on.modify_bg(gtk.STATE_ACTIVE, gtk.gdk.color_parse("#FFFF00"))
-        self.widgets.tbtn_estop.modify_bg(gtk.STATE_ACTIVE, gtk.gdk.color_parse("#00FF00"))
-        self.widgets.tbtn_estop.modify_bg(gtk.STATE_NORMAL, gtk.gdk.color_parse("#FF0000"))
+        self.widgets.tbtn_estop.modify_bg(gtk.STATE_ACTIVE, gtk.gdk.color_parse("#FF0000"))
+        self.widgets.tbtn_estop.modify_bg(gtk.STATE_NORMAL, gtk.gdk.color_parse("#00FF00"))
         self.widgets.rbt_manual.modify_bg(gtk.STATE_ACTIVE, gtk.gdk.color_parse("#FFFF00"))
         self.widgets.rbt_mdi.modify_bg(gtk.STATE_ACTIVE, gtk.gdk.color_parse("#FFFF00"))
         self.widgets.rbt_auto.modify_bg(gtk.STATE_ACTIVE, gtk.gdk.color_parse("#FFFF00"))
@@ -2164,7 +1799,6 @@ class Build_GUI(gobject.GObject):
         self.widgets.tbtn_user_tabs.modify_bg(gtk.STATE_ACTIVE, gtk.gdk.color_parse("#FFFF00"))
         self.widgets.tbtn_view_dimension.modify_bg(gtk.STATE_ACTIVE, gtk.gdk.color_parse("#FFFF00"))
         self.widgets.tbtn_view_tool_path.modify_bg(gtk.STATE_ACTIVE, gtk.gdk.color_parse("#FFFF00"))
-#        self.widgets.tbtn_edit_offsets.modify_bg(gtk.STATE_ACTIVE, gtk.gdk.color_parse("#FFFF00"))
         self.widgets.tbtn_switch_mode.modify_bg(gtk.STATE_ACTIVE, gtk.gdk.color_parse("#FFFF00"))
 
         # set start colors of the color selection button
@@ -2173,7 +1807,6 @@ class Build_GUI(gobject.GObject):
         self.widgets.dtg_colorbutton.set_color(gtk.gdk.color_parse(self.dtg_color))
         self.widgets.homed_colorbtn.set_color(gtk.gdk.color_parse(self.homed_color))
         self.widgets.unhomed_colorbtn.set_color(gtk.gdk.color_parse(self.unhomed_color))
-
 
         # set the velocity settings to adjustments
         self.widgets.adj_spindle_bar_min.set_value(self.min_spindle_rev)
@@ -2269,9 +1902,9 @@ class Build_GUI(gobject.GObject):
         unlock = self.prefs.getpref("unlock_way", "use", str)
         # and set the corresponding button active
         self.widgets["rbt_{0}_unlock".format(unlock)].set_active(True)
-        # if Hal pin should be used, only set the button active, if the pin is high
-        if unlock == "hal" and not self.halcomp["unlock-settings"]:
-            self.widgets.tbtn_setup.set_sensitive(False)
+#        # if Hal pin should be used, only set the button active, if the pin is high
+#        if unlock == "hal" and not self.halcomp["unlock-settings"]:
+#            self.widgets.tbtn_setup.set_sensitive(False)
 
 ###############################################################################
 ##                   initial clicking and toggling                           ##
@@ -2279,83 +1912,6 @@ class Build_GUI(gobject.GObject):
 
     def _activate_widgets(self):
         pass
-
-    # if this is a lathe we need to rearrange some button and add a additional DRO
-    def _make_lathe(self):
-        print("**** GMOCCAPY build_GUI INFO ****")
-        print("**** we have a lathe here")
-
-        # if we have a lathe, we will need an additional DRO to display
-        # diameter and radius simultaneous, we will call that one Combi_DRO_9, as that value
-        # should never be used due to the limit in axis from 0 to 8
-
-        dro = Combi_DRO()
-        dro.set_property("name", "Combi_DRO_9")
-        dro.set_property("abs_color", gtk.gdk.color_parse(self.abs_color))
-        dro.set_property("rel_color", gtk.gdk.color_parse(self.rel_color))
-        dro.set_property("dtg_color", gtk.gdk.color_parse(self.dtg_color))
-        dro.set_property("homed_color", gtk.gdk.color_parse(self.homed_color))
-        dro.set_property("unhomed_color", gtk.gdk.color_parse(self.unhomed_color))
-        dro.set_property("actual", self.dro_actual)
-
-        joint = self._get_joint_from_joint_axis_dic("x")
-        dro.set_joint_no(joint)
-        dro.set_axis("x")
-        dro.change_axisletter("D")
-        dro.set_property("diameter", True)
-        dro.show()
-
-        dro.connect("clicked", self._on_DRO_clicked)
-        self.dro_dic[dro.name] = dro
-
-        self.dro_dic["Combi_DRO_0"].change_axisletter("R")
-
-        self._arrange_dro()
-
-        # For gremlin we don"t need the following button
-        if self.backtool_lathe:
-            self.widgets.rbt_view_y2.set_active(True)
-            self.widgets.gremlin.set_property("view", "y2")
-            self.prefs.putpref("gremlin_view", "rbt_view_y2")
-        else:
-            self.widgets.rbt_view_y.set_active(True)
-            self.widgets.gremlin.set_property("view", "y")
-            self.prefs.putpref("gremlin_view", "rbt_view_y")
-
-        self.widgets.rbt_view_p.hide()
-        self.widgets.rbt_view_x.hide()
-        self.widgets.rbt_view_z.hide()
-        self.widgets.rbt_view_y2.show()
-
-        # this is from jog button
-        print("self.jog_button_dic = ", self.jog_button_dic.keys())
-
-        return
-        if self.lathe_mode:
-            # OK this is a lathe, lets see if it is a backtool_lathe
-            if self.backtool_lathe:
-                # Now we are sure we have a backtool lathe
-                # as we only expect X an Z, lets place them in the table
-                for btn in btnlst:
-                    name = btn.get_property("name")
-                    if name == "x+":
-                        col = 1
-                        row = 0
-                    if name == "x-":
-                        col = 1
-                        row = 2
-                    if name == "y+":
-                        col = 2
-                        row = 0
-                    if name == "y-":
-                        col = 0
-                        row = 2
-                    if name == "z+":
-                        col = 0
-                        row = 1
-                    if name == "z-":
-                        col = 2
-                        row = 1
 
 ###############################################################################
 ##                  set initial global values value                          ##

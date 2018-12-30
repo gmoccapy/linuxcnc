@@ -33,7 +33,7 @@ import gtk                 # base for pygtk widgets and constants
 import sys                 # handle system calls
 import os                  # needed to get the paths and directories
 #import pango               # needed for font settings and changing
-#import gladevcp.makepins   # needed for the dialog"s calculator widget
+import gladevcp.makepins   # needed for the dialog"s calculator widget
 import atexit              # needed to register child's to be closed on closing the GUI
 import subprocess          # to launch onboard and other processes
 import tempfile            # needed only if the user click new in edit mode to open a new empty file
@@ -42,7 +42,7 @@ import gobject             # needed to add the timer for periodic
 import locale              # for setting the language of the GUI
 import gettext             # to extract the strings to be translated
 
-#from gladevcp.gladebuilder import GladeBuilder
+from gladevcp.gladebuilder import GladeBuilder
 
 from time import strftime  # needed for the clock in the GUI
 #from gtk._gtk import main_quit
@@ -114,6 +114,7 @@ LIBDIR = os.path.join(BASE, "lib", "python")
 sys.path.insert(0, LIBDIR)
 
 # as now we know the libdir path we can import our own modules
+from gmoccapy import widgets              # a class to handle the widgets
 from gmoccapy import notification  # this is the module we use for our error handling
 from gmoccapy import preferences   # this handles the preferences
 from gmoccapy import getiniinfo    # this handles the INI File reading so checking is done in that module
@@ -159,12 +160,21 @@ class gmoccapy(object):
         gettext.install("gmoccapy", localedir=LOCALEDIR, unicode=True)
         gettext.bindtextdomain("gmoccapy", LOCALEDIR)
 
+        self.builder = gtk.Builder()
+        # translation of the glade file will be done with
+        self.builder.set_translation_domain("gmoccapy")
+        self.builder.add_from_file(XMLNAME)
+        self.builder.connect_signals(self)
+        
+        # get all widgets as class, so they can be called directly
+        self.widgets = widgets.Widgets(self.builder)
+
         # needed components to communicate with hal and LinuxCNC
         self.halcomp = hal.component("gmoccapy")
         self.command = linuxcnc.command()
         self.stat = linuxcnc.stat()
         self.error_channel = linuxcnc.error_channel()
-
+        
         # initial poll, so all is up to date
         self.stat.poll()
         self.error_channel.poll()
@@ -190,8 +200,6 @@ class gmoccapy(object):
         self.feed_override = 1    # holds the spindle override value and is needed to be able to react to halui pin
         self.rapidrate = 1        # holds the rapid override value and is needed to be able to react to halui pin
 
-        #self.incr_rbt_list = []   # we use this list to add hal pin to the button later
-        #self.jog_increments = []  # This holds the increment values
         self.unlock = False       # this value will be set using the hal pin unlock settings
 
         self.notification = notification.Notification()  # Our own message system
@@ -213,33 +221,23 @@ class gmoccapy(object):
         # Our own clas to get information from ini the file we use this way, to be sure
         # to get a valid result, as the checks are done in that module
         self.get_ini_info = getiniinfo.GetIniInfo()
-
+        
         # This class will handle all the user preferences
         self.prefs = preferences.preferences(self.get_ini_info.get_preference_file_path())
 
         # This class will build the GUI to fit all the users needs, it has been 
         # introduced to separate the LinuxCNC code from the GUI 
         # building code and reaction code
-        self.gui = build_gui.Build_GUI(self.halcomp, _RELEASE)
+        self.gui = build_gui.Build_GUI(self.widgets, _RELEASE)
         self.gui.connect("home_clicked", self._home_signal)
         self.gui.connect("unhome_clicked", self._unhome_signal)
-        self.gui.connect("estop_active", self._estop_active)
-        self.gui.connect("on_active", self._on_active)
-        self.gui.connect("set_manual", self._set_manual)
-        self.gui.connect("set_mdi", self._set_mdi)
-        self.gui.connect("set_auto", self._set_auto)
-        self.gui.connect("set_motion_mode", self._set_motion_mode)
-        self.gui.connect("mdi_command", self._mdi_command)
-        self.gui.connect("mdi_abort", self._mdi_abort)
+#        self.gui.connect("mdi_command", self._mdi_command)
+#        self.gui.connect("mdi_abort", self._mdi_abort)
         self.gui.connect("jog_btn_pressed", self._on_btn_jog_pressed)
         self.gui.connect("jog_btn_released", self._on_btn_jog_released)
-        self.gui.connect("jog_incr_changed", self._on_increment_changed)
-        self.gui.connect("error", self._show_error)
-        self.gui.connect("exit", self._exit)
-
-        # get all widgets as class, so they can be called directly
-        self.widgets = self.gui.widgets
-        self.builder = self.gui.builder
+#        self.gui.connect("jog_incr_changed", self._on_increment_changed)
+#        self.gui.connect("error", self._show_error)
+#        self.gui.connect("exit", self._exit)
 
         # and this class will handle the dialogs
         self.dialogs = dialogs.Dialogs()
@@ -252,7 +250,7 @@ class gmoccapy(object):
             print(index, " = ", arg)
             if arg == "-user_mode":
                 self.user_mode = True
-#                self.widgets.tbtn_setup.set_sensitive(False)
+                self.gui.widgets.tbtn_setup.set_sensitive(False)
                 message = _("**** GMOCCAPY INI Entry **** \n")
                 message += _("user mode selected")
                 print (message)
@@ -279,7 +277,7 @@ class gmoccapy(object):
 
         self._init_user_messages()
 
-#        panel = gladevcp.makepins.GladePanel(self.halcomp, XMLNAME, self.builder, None)
+        panel = gladevcp.makepins.GladePanel(self.halcomp, XMLNAME, self.builder, None)
 
         self.halcomp.ready()
 
@@ -397,11 +395,6 @@ class gmoccapy(object):
         # CYCLE_TIME = time, in milliseconds, that display will sleep between polls
         cycle_time = self.get_ini_info.get_cycle_time()
         gobject.timeout_add( cycle_time, self._periodic )  # time between calls to the function, in milliseconds
-
-    def _set_motion_mode(self, object, state):
-        # 1:teleop, 0: joint
-        self.command.teleop_enable(state)
-        self.command.wait_complete()
 
     def _init_preferences(self):
 
@@ -716,98 +709,415 @@ class gmoccapy(object):
             self.widgets.window1.window.set_cursor(None)
             self.widgets.gremlin.set_property("use_default_controls", True)
 
-## =============================================================
-## Onboard keybord handling Start
-#
-#    # shows "Onboard" virtual keyboard if available
-#    # else error message
-#    def _init_keyboard(self, args="", x="", y=""):
-#        self.onboard = False
-#
-#        # now we check if onboard or matchbox-keyboard is installed
-#        try:
-#            if os.path.isfile("/usr/bin/onboard"):
-#                self.onboard_kb = subprocess.Popen(["onboard", "--xid", args, x, y],
-#                                                   stdin=subprocess.PIPE,
-#                                                   stdout=subprocess.PIPE,
-#                                                   close_fds=True)
-#                print (_("**** GMOCCAPY INFO ****"))
-#                print (_("**** virtual keyboard program found : <onboard>"))
-#            elif os.path.isfile("/usr/bin/matchbox-keyboard"):
-#                self.onboard_kb = subprocess.Popen(["matchbox-keyboard", "--xid"],
-#                                                   stdin=subprocess.PIPE,
-#                                                   stdout=subprocess.PIPE,
-#                                                   close_fds=True)
-#                print (_("**** GMOCCAPY INFO ****"))
-#                print (_("**** virtual keyboard program found : <matchbox-keyboard>"))
-#            else:
-#                print (_("**** GMOCCAPY INFO ****"))
-#                print (_("**** No virtual keyboard installed, we checked for <onboard> and <matchbox-keyboard>."))
-#                self._no_virt_keyboard()
-#                return
-#            sid = self.onboard_kb.stdout.readline()
-#            socket = gtk.Socket()
-#            self.widgets.key_box.add(socket)
-#            socket.add_id(long(sid))
-#            socket.show()
-#            self.onboard = True
-#        except Exception, e:
-#            print (_("**** GMOCCAPY ERROR ****"))
-#            print (_("**** Error with launching virtual keyboard,"))
-#            print (_("**** is onboard or matchbox-keyboard installed? ****"))
-#            traceback.print_exc()
-#            self._no_virt_keyboard()
-#
-#        # get when the keyboard should be shown
-#        # and set the corresponding button active
-#        # only if onbaoard keyboard is ok.
-#        if self.onboard:
-#            self.widgets.chk_use_kb_on_offset.set_active(self.prefs.getpref("show_keyboard_on_offset",
-#                                                                            False, bool))
-#            self.widgets.chk_use_kb_on_tooledit.set_active(self.prefs.getpref("show_keyboard_on_tooledit",
-#                                                                              False, bool))
-#            self.widgets.chk_use_kb_on_edit.set_active(self.prefs.getpref("show_keyboard_on_edit",
-#                                                                          True, bool))
-#            self.widgets.chk_use_kb_on_mdi.set_active(self.prefs.getpref("show_keyboard_on_mdi",
-#                                                                         True, bool))
-#            self.widgets.chk_use_kb_on_file_selection.set_active(self.prefs.getpref("show_keyboard_on_file_selection",
-#                                                                                    False, bool))
-#        else:
-#            self.widgets.chk_use_kb_on_offset.set_active(False)
-#            self.widgets.chk_use_kb_on_tooledit.set_active(False)
-#            self.widgets.chk_use_kb_on_edit.set_active(False)
-#            self.widgets.chk_use_kb_on_mdi.set_active(False)
-#            self.widgets.chk_use_kb_on_file_selection.set_active(False)
-#            self.widgets.frm_keyboard.set_sensitive(False) 
-#
-#    def _no_virt_keyboard(self):
-#        # In this case we will disable the corresponding part on the settings page
-#        self.widgets.chk_use_kb_on_offset.set_active(False)
-#        self.widgets.chk_use_kb_on_tooledit.set_active(False)
-#        self.widgets.chk_use_kb_on_edit.set_active(False)
-#        self.widgets.chk_use_kb_on_mdi.set_active(False)
-#        self.widgets.chk_use_kb_on_file_selection.set_active(False)
-#        self.widgets.frm_keyboard.set_sensitive(False)
-#        self.widgets.btn_show_kbd.set_sensitive(False)
-#        self.widgets.btn_show_kbd.set_image(self.widgets.img_brake_macro)
-#        self.widgets.btn_show_kbd.set_property("tooltip-text", _("interrupt running macro"))
-#        self.widgets.btn_keyb.set_sensitive(False)
-#
-#    def _kill_keyboard(self):
-#        try:
-#            self.onboard_kb.kill()
-#            self.onboard_kb.terminate()
-#            self.onboard_kb = None
-#        except:
-#            try:
-#                self.onboard_kb.kill()
-#                self.onboard_kb.terminate()
-#                self.onboard_kb = None
-#            except:
-#                pass
-#
-## Onboard keybord handling End
-## =============================================================
+###############################################################################
+##                        GUI Element handlers                               ##
+##                         right side button                                 ##
+###############################################################################
+
+    # toggle emergency button
+    def on_tbtn_estop_toggled(self, widget, data=None):
+        print("Estop toggled", widget.get_active())
+        if widget.get_active():  # estop is active, open circuit
+            self.command.state(linuxcnc.STATE_ESTOP)
+            self.command.wait_complete()
+            self.stat.poll()
+            if self.stat.task_state == linuxcnc.STATE_ESTOP_RESET:
+                widget.set_active(False)
+        else:  # estop circuit is fine
+            self.command.state(linuxcnc.STATE_ESTOP_RESET)
+            self.command.wait_complete()
+            self.stat.poll()
+            if self.stat.task_state == linuxcnc.STATE_ESTOP:
+                widget.set_active(True)
+                self._show_error((11, _("ERROR : External ESTOP is set, could not change state!")))
+
+    # toggle machine on / off button
+    def on_tbtn_on_toggled(self, widget, data=None):
+        if widget.get_active():
+            if self.stat.task_state == linuxcnc.STATE_ESTOP:
+                widget.set_active(False)
+                return
+            self.command.state(linuxcnc.STATE_ON)
+            self.command.wait_complete()
+            self.stat.poll()
+            if self.stat.task_state != linuxcnc.STATE_ON:
+                widget.set_active(False)
+                self._show_error((11, _("ERROR : Could not switch the machine on, is limit switch activated?")))
+                self._update_widgets(False)
+                return
+            self._update_widgets(True)
+        else:
+            self.command.state(linuxcnc.STATE_OFF)
+            self._update_widgets(False)
+
+    # The mode buttons
+    def on_rbt_manual_pressed(self, widget, data=None):
+        self.command.mode(linuxcnc.MODE_MANUAL)
+        self.command.wait_complete()
+
+    def on_rbt_mdi_pressed(self, widget, data=None):
+        self.command.mode(linuxcnc.MODE_MDI)
+        self.command.wait_complete()
+
+    def on_rbt_auto_pressed(self, widget, data=None):
+        self.command.mode(linuxcnc.MODE_AUTO)
+        self.command.wait_complete()
+
+    def on_tbtn_setup_toggled(self, widget, data=None):
+        # first we set to manual mode, as we do not allow changing settings in other modes
+        # otherwise external halui commands could start a program while we are in settings
+        self.command.mode(linuxcnc.MODE_MANUAL)
+        self.command.wait_complete()
+        
+        if widget.get_active():
+            # deactivate the mode buttons, so changing modes is not possible while we are in settings mode
+            self.widgets.rbt_manual.set_sensitive(False)
+            self.widgets.rbt_mdi.set_sensitive(False)
+            self.widgets.rbt_auto.set_sensitive(False)
+            code = False
+            # here the user don"t want an unlock code
+            if self.widgets.rbt_no_unlock.get_active():
+                code = True
+            # if hal pin is true, we are allowed to enter settings, this may be
+            # realized using a key switch
+            if self.widgets.rbt_hal_unlock.get_active() and self.halcomp["unlock-settings"]:
+                code = True
+            # else we ask for the code using the system.dialog
+            if self.widgets.rbt_use_unlock.get_active():
+                if self.dialogs.system_dialog(self):
+                    code = True
+            # Lets see if the user has the right to enter settings
+            if code:
+                self.widgets.ntb_main.set_current_page(1)
+                self.widgets.ntb_setup.set_current_page(0)
+                self.widgets.ntb_button.set_current_page(_BB_SETUP)
+            else:
+                if self.widgets.rbt_hal_unlock.get_active():
+                    message = _("Hal Pin is low, Access denied")
+                else:
+                    message = _("wrong code entered, Access denied")
+                self.dialogs.warning_dialog(self, _("Just to warn you"), message)
+                self.widgets.tbtn_setup.set_active(False)
+        else:
+            # check witch button should be sensitive, depending on the state of the machine
+            if self.stat.task_state == linuxcnc.STATE_ESTOP:
+                # estopped no mode available
+                self.widgets.rbt_manual.set_sensitive(False)
+                self.widgets.rbt_mdi.set_sensitive(False)
+                self.widgets.rbt_auto.set_sensitive(False)
+            if (self.stat.task_state == linuxcnc.STATE_ON) and not self.all_homed:
+                # machine on, but not homed, only manual allowed
+                self.widgets.rbt_manual.set_sensitive(True)
+                self.widgets.rbt_mdi.set_sensitive(False)
+                self.widgets.rbt_auto.set_sensitive(False)
+            if (self.stat.task_state == linuxcnc.STATE_ON) and (self.all_homed or self.gui.no_force_homing):
+                # all OK, make all modes available
+                self.widgets.rbt_manual.set_sensitive(True)
+                self.widgets.rbt_mdi.set_sensitive(True)
+                self.widgets.rbt_auto.set_sensitive(True)
+            # this is needed here, because we do not
+            # change mode, so on_hal_status_manual will not be called
+            self.widgets.ntb_main.set_current_page(0)
+            self.widgets.ntb_button.set_current_page(_BB_MANUAL)
+            self.widgets.ntb_info.set_current_page(0)
+            self.widgets.ntb_jog.set_current_page(0)
+
+            # if we are in user tabs, we must reset the button
+            if self.widgets.tbtn_user_tabs.get_active():
+                self.widgets.tbtn_user_tabs.set_active(False)
+
+    # Show or hide the user tabs
+    def on_tbtn_user_tabs_toggled(self, widget, data=None):
+        if widget.get_active():
+            self.widgets.ntb_main.set_current_page(2)
+            self.widgets.tbtn_fullsize_preview.set_sensitive(False)
+        else:
+            self.widgets.ntb_main.set_current_page(0)
+            self.widgets.tbtn_fullsize_preview.set_sensitive(True)
+
+    # If button exit is clicked, press emergency button before closing the application
+    def on_btn_exit_clicked(self, widget, data=None):
+        self.widgets.window1.destroy()
+
+###############################################################################
+##                        GUI Element handlers                               ##
+##                       bottom button - manual                              ##
+###############################################################################
+
+###############################################################################
+##                        GUI Element handlers                               ##
+##                       bottom button - main tab                            ##
+###############################################################################
+
+    def on_btn_homing_clicked(self, widget, data=None):
+        self.widgets.ntb_button.set_current_page(_BB_HOME)
+
+    # The offset settings, set to zero
+    def on_btn_touch_clicked(self, widget, data=None):
+        self.widgets.ntb_button.set_current_page(_BB_TOUCH_OFF)
+        self._show_offset_tab(True)
+        if self.widgets.rbtn_show_preview.get_active():
+            self.widgets.ntb_preview.set_current_page(0)
+
+###############################################################################
+##                        GUI Element handlers                               ##
+##                     bottom button - homing tab                            ##
+###############################################################################
+
+    def _unhome_signal(self, object, joint):
+        self._set_motion_mode(0)
+        self.all_homed = False
+        # -1 for all
+        self.command.unhome(joint)
+
+    def _home_signal(self, object, joint):
+        print("home signal joint", joint)
+        self._set_motion_mode(0)
+        self.command.home(joint)
+
+###############################################################################
+##                        GUI Element handlers                               ##
+##                     bottom button - touch tab                             ##
+###############################################################################
+
+#self.touch_button_dic[child.name]
+
+###############################################################################
+##                        GUI Element handlers                               ##
+##                          notebook changes                                 ##
+###############################################################################
+
+    # if we leave the edit mode, we will have to show all widgets again
+    def on_ntb_button_switch_page(self, *args):
+        if self.widgets.ntb_preview.get_current_page() == 0:  # preview tab is active,
+            # check if offset tab is visible, if so we have to hide it
+            page = self.widgets.ntb_preview.get_nth_page(1)
+            if page.get_visible():
+                self._show_offset_tab(False)
+        elif self.widgets.ntb_preview.get_current_page() == 1:
+            self._show_offset_tab(False)
+        elif self.widgets.ntb_preview.get_current_page() == 2:
+            self._show_tooledit_tab(False)
+        elif self.widgets.ntb_preview.get_current_page() == 3:
+            self._show_iconview_tab(False)
+
+        if self.widgets.tbtn_fullsize_preview.get_active():
+            self.widgets.tbtn_fullsize_preview.set_active(False)
+        if self.widgets.ntb_button.get_current_page() == _BB_EDIT or self.widgets.ntb_preview.get_current_page() == _BB_HOME:
+            self.widgets.ntb_preview.show()
+            self.widgets.hbox_dro.show()
+            self.widgets.vbx_jog.set_size_request(360, -1)
+            self.widgets.gcode_view.set_sensitive(0)
+            self.widgets.btn_save.set_sensitive(True)
+            self.widgets.hal_action_reload.emit("activate")
+            self.widgets.ntb_info.set_current_page(0)
+            self.widgets.ntb_info.show()
+            self.widgets.box_info.set_size_request(-1, 200)
+            self.widgets.tbl_search.hide()
+
+    def on_ntb_info_switch_page(self, widget, page, page_num, data=None):
+        if self.stat.task_mode == linuxcnc.MODE_MDI:
+            self.widgets.hal_mdihistory.entry.grab_focus()
+        elif self.stat.task_mode == linuxcnc.MODE_AUTO:
+            self.widgets.gcode_view.grab_focus()
+
+    def on_ntb_main_switch_page(self, widget, page, page_num, data=None):
+        if self.widgets.tbtn_setup.get_active():
+            if page_num != 1L:  # setup page is active,
+                self.widgets.tbtn_setup.set_active(False)
+
+###############################################################################
+##                        GUI Element handlers                               ##
+##                         jogging button box                                ##
+###############################################################################
+
+    def _on_btn_jog_pressed(self, object, joint_or_axis, direction, shift=False):
+        print(self, object, joint_or_axis, direction, shift)
+
+        # only in manual mode we will allow jogging the axis at this development state
+        if not self.stat.enabled or self.stat.task_mode != linuxcnc.MODE_MANUAL:
+            return
+
+        joint_btn = False
+        if not joint_or_axis.lower() in "xyzabcuvw":
+            # OK, it seems to be a Joints button
+            if joint_or_axis in "012345678":
+                joint_btn = True
+            else:
+                print ("unknown joint or axis {0}".format(joint_or_axis))
+                return
+
+        if not joint_btn:
+            # get the axisnumber
+            joint_axis_number = "xyzabcuvws".index(joint_or_axis.lower())
+        else:
+            joint_axis_number = "01234567".index(joint_or_axis)
+
+        # if shift = True, then the user pressed SHIFT for Jogging and
+        # want's to jog at full speed
+        if shift:
+            value = self.stat.max_velocity
+        else:
+            value = self.widgets.spc_lin_jog_vel.get_value() / 60
+
+        velocity = value * (1 / self.faktor)
+
+        if direction == "+":
+            dir = 1
+        else:
+            dir = -1
+
+        if self.stat.motion_mode == 1:
+            if self.stat.kinematics_type == linuxcnc.KINEMATICS_IDENTITY:
+                # this may happen, because the joints / axes has been unhomed
+                print("wrong motion mode, change to the correct one")
+                self._set_motion_mode(None, 1)
+                JOGMODE = 0
+            else:
+                JOGMODE = 1
+        else :
+            JOGMODE = 0
+        
+        if self.distance <> 0:  # incremental jogging
+            self.command.jog(linuxcnc.JOG_INCREMENT, JOGMODE, joint_axis_number, dir * velocity, self.distance)
+        else:  # continuous jogging
+            self.command.jog(linuxcnc.JOG_CONTINUOUS, JOGMODE, joint_axis_number, dir * velocity)
+
+    def _on_btn_jog_released(self, object, joint_or_axis, direction, shift=False):
+        # only in manual mode we will allow jogging the axis at this development state
+        if not self.stat.enabled or self.stat.task_mode != linuxcnc.MODE_MANUAL:
+            return
+
+        joint_btn = False
+        if not joint_or_axis.lower() in "xyzabcuvw":
+            # OK, it may be a Joints button
+            if joint_or_axis in "01234567":
+                joint_btn = True
+            else:
+                print ("unknown axis {0}".format(joint_or_axis))
+                return
+
+        if not joint_btn:
+            # get the axisnumber
+            joint_axis_number = "xyzabcuvw".index(joint_or_axis.lower())
+            print joint_axis_number
+        else:
+            joint_axis_number = "01234567".index(joint_or_axis)
+
+        if self.stat.motion_mode == 1:
+            if self.stat.kinematics_type == linuxcnc.KINEMATICS_IDENTITY:
+                # this may happen, because the joints / axes has been unhomed
+                print("wrong motion mode, change to the correct one")
+                self._set_motion_mode(None, 1)
+                JOGMODE = 0
+            else:
+                JOGMODE = 1
+        else :
+            JOGMODE = 0
+
+        # Otherwise the movement would stop before the desired distance was moved
+        if self.distance <> 0:
+            pass
+        else:
+            self.command.jog(linuxcnc.JOG_STOP, JOGMODE, joint_axis_number)
+
+
+###############################################################################
+##                             helper function                               ##
+###############################################################################
+
+    def _sensitize_widgets(self, widgetlist, value):
+        for name in widgetlist:
+            try:
+                self.widgets[name].set_sensitive(value)
+            except Exception, e:
+                print (_("**** GMOCCAPY ERROR ****"))
+                print _("**** No widget named: {0} to sensitize ****").format(name)
+                traceback.print_exc()
+
+    def _update_widgets(self, state):
+        widgetlist = ["rbt_manual", "btn_homing", "btn_touch", "btn_tool",
+                      "hbox_jog_vel", "ntb_jog_JA", "vbtb_jog_incr", "spc_feed", 
+                      "btn_feed_100", "rbt_forward", "btn_index_tool",
+                      "rbt_reverse", "rbt_stop", "tbtn_flood", "tbtn_mist", 
+                      "btn_change_tool", "btn_select_tool_by_no",
+                      "btn_spindle_100", "spc_rapid", "spc_spindle",
+                      "btn_tool_touchoff_x", "btn_tool_touchoff_z"
+                      ]
+        self._sensitize_widgets(widgetlist, state)
+
+    def _set_motion_mode(self, state):
+        # 1:teleop, 0: joint
+        self.command.teleop_enable(state)
+        self.command.wait_complete()
+
+    def reload_tool(self):
+        tool_to_load = self.prefs.getpref("tool_in_spindle", 0, int)
+        if tool_to_load == 0:
+            return
+        self.load_tool = True
+        self.tool_change = True
+
+        self.command.mode(linuxcnc.MODE_MDI)
+        self.command.wait_complete()
+
+        command = "M61 Q {0} G43".format(tool_to_load)
+        self.command.mdi(command)
+        self.command.wait_complete()
+
+    def _update_toolinfo(self, tool):
+        toolinfo = self.widgets.tooledit1.get_toolinfo(tool)
+        if toolinfo:
+            # Doku
+            # toolinfo[0] = cell toggle
+            # toolinfo[1] = tool number
+            # toolinfo[2] = pocket number
+            # toolinfo[3] = X offset
+            # toolinfo[4] = Y offset
+            # toolinfo[5] = Z offset
+            # toolinfo[6] = A offset
+            # toolinfo[7] = B offset
+            # toolinfo[8] = C offset
+            # toolinfo[9] = U offset
+            # toolinfo[10] = V offset
+            # toolinfo[11] = W offset
+            # toolinfo[12] = tool diameter
+            # toolinfo[13] = frontangle
+            # toolinfo[14] = backangle
+            # toolinfo[15] = tool orientation
+            # toolinfo[16] = tool info
+            self.widgets.lbl_tool_no.set_text(str(toolinfo[1]))
+            self.widgets.lbl_tool_dia.set_text(toolinfo[12])
+            self.halcomp["tool-diameter"] = float(locale.atof(toolinfo[12]))
+            self.widgets.lbl_tool_name.set_text(toolinfo[16])
+
+        # we do not allow touch off with no tool mounted, so we set the
+        # corresponding widgets unsensitized and set the description accordingly
+        if tool <= 0:
+            self.widgets.lbl_tool_no.set_text("0")
+            self.widgets.lbl_tool_dia.set_text("0")
+            self.widgets.lbl_tool_name.set_text(_("No tool description available"))
+            self.widgets.btn_tool_touchoff_x.set_sensitive(False)
+            self.widgets.btn_tool_touchoff_z.set_sensitive(False)
+        else:
+            self.widgets.btn_tool_touchoff_x.set_sensitive(True)
+            self.widgets.btn_tool_touchoff_z.set_sensitive(True)
+
+        if self.load_tool:
+            self.load_tool = False
+            self.on_hal_status_interp_idle(None)
+            return
+
+        if "G43" in self.active_gcodes and self.stat.task_mode != linuxcnc.MODE_AUTO:
+            self.command.mode(linuxcnc.MODE_MDI)
+            self.command.wait_complete()
+            self.command.mdi("G43")
+            self.command.wait_complete()
+
+
+
+
+
 
     def _init_offsetpage(self):
         temp = "xyzabcuvw"
@@ -1071,8 +1381,218 @@ class gmoccapy(object):
 # button handlers End
 # =========================================================
 
-# =========================================================
-# hal status Start
+###############################################################################
+##                         Hal status handling                               ##
+###############################################################################
+
+    def on_hal_status_state_estop(self, widget=None):
+        self.widgets.tbtn_estop.set_active(True)
+        self.widgets.tbtn_estop.set_image(self.widgets.img_emergency)
+        self.widgets.tbtn_on.set_image(self.widgets.img_machine_on)
+        self.widgets.tbtn_on.set_sensitive(False)
+        self.widgets.chk_ignore_limits.set_sensitive(False)
+        self.widgets.tbtn_on.set_active(False)
+        self.command.mode(linuxcnc.MODE_MANUAL)
+
+    def on_hal_status_state_estop_reset(self, widget=None):
+        self.widgets.tbtn_estop.set_active(False)
+        self.widgets.tbtn_estop.set_image(self.widgets.img_emergency_off)
+        self.widgets.tbtn_on.set_image(self.widgets.img_machine_off)
+        self.widgets.tbtn_on.set_sensitive(True)
+        self.widgets.ntb_jog.set_sensitive(True)
+        self.widgets.ntb_jog_JA.set_sensitive(False)
+        self.widgets.vbtb_jog_incr.set_sensitive(False)
+        self.widgets.hbox_jog_vel.set_sensitive(False)
+        self.widgets.chk_ignore_limits.set_sensitive(True)
+        self._check_limits()
+
+    def on_hal_status_state_off(self, widget):
+        widgetlist = ["rbt_manual", "rbt_mdi", "rbt_auto", "btn_homing", "btn_touch", "btn_tool",
+                      "hbox_jog_vel", "ntb_jog_JA", "vbtb_jog_incr", "spc_feed", "btn_feed_100", "rbt_forward", "btn_index_tool",
+                      "rbt_reverse", "rbt_stop", "tbtn_flood", "tbtn_mist", "btn_change_tool", "btn_select_tool_by_no",
+                      "btn_spindle_100", "spc_rapid", "spc_spindle",
+                      "btn_tool_touchoff_x", "btn_tool_touchoff_z"
+        ]
+        self._sensitize_widgets(widgetlist, False)
+        if self.widgets.tbtn_on.get_active():
+            self.widgets.tbtn_on.set_active(False)
+        self.widgets.tbtn_on.set_image(self.widgets.img_machine_off)
+        self.widgets.btn_exit.set_sensitive(True)
+        self.widgets.chk_ignore_limits.set_sensitive(True)
+        self.widgets.ntb_main.set_current_page(0)
+        self.widgets.ntb_button.set_current_page(_BB_MANUAL)
+        self.widgets.ntb_info.set_current_page(0)
+        self.widgets.ntb_jog.set_current_page(0)
+
+    def on_hal_status_state_on(self, widget):
+        widgetlist = ["rbt_manual", "btn_homing", "btn_touch", "btn_tool",
+                      "ntb_jog", "spc_feed", "btn_feed_100", "rbt_forward",
+                      "rbt_reverse", "rbt_stop", "tbtn_flood", "tbtn_mist",
+                      "btn_spindle_100", "spc_rapid", "spc_spindle"
+        ]
+        self._sensitize_widgets(widgetlist, True)
+        if not self.widgets.tbtn_on.get_active():
+            self.widgets.tbtn_on.set_active(True)
+        self.widgets.tbtn_on.set_image(self.widgets.img_machine_on)
+        self.widgets.btn_exit.set_sensitive(False)
+        self.widgets.chk_ignore_limits.set_sensitive(False)
+        if self.widgets.ntb_main.get_current_page() != 0:
+            self.command.mode(linuxcnc.MODE_MANUAL)
+            self.command.wait_complete()
+
+    def on_hal_status_mode_manual(self, widget):
+        print ("MANUAL Mode")
+        self.widgets.rbt_manual.set_active(True)
+        # if setup page is activated, we must leave here, otherwise the pages will be reset
+        if self.widgets.tbtn_setup.get_active():
+            return
+        # if we are in user tabs, we must reset the button
+        if self.widgets.tbtn_user_tabs.get_active():
+            self.widgets.tbtn_user_tabs.set_active(False)
+        self.widgets.ntb_main.set_current_page(0)
+        self.widgets.ntb_button.set_current_page(_BB_MANUAL)
+        self.widgets.ntb_info.set_current_page(0)
+        self.widgets.ntb_jog.set_current_page(0)
+        self._check_limits()
+        
+        # if the status changed, we reset the key event, otherwise the key press
+        # event will not change, if the user did the last change with keyboard shortcut
+        # This is caused, because we record the last key event to avoid multiple key
+        # press events by holding down the key. I.e. One press should only advance one increment
+        # on incremental jogging.
+        self.last_key_event = None, 0
+
+    def on_hal_status_mode_mdi(self, widget):
+        print ("MDI Mode", self.tool_change)
+
+        # if the edit offsets button is active, we do not want to change
+        # pages, as the user may want to edit several axis values
+        if self.gui.touch_button_dic["edit_offsets"].get_active():
+            return
+
+        # self.tool_change is set only if the tool change was commanded
+        # from tooledit widget/page, so we do not want to switch the
+        # screen layout to MDI, but set the manual widgets
+        if self.tool_change:
+            self.widgets.ntb_main.set_current_page(0)
+            self.widgets.ntb_button.set_current_page(_BB_MANUAL)
+            self.widgets.ntb_info.set_current_page(0)
+            self.widgets.ntb_jog.set_current_page(0)
+            return
+
+        # if MDI button is not sensitive, we are not ready for MDI commands
+        # so we have to abort external commands and get back to manual mode
+        # This will happen mostly, if we are in settings mode, as we do disable the mode button
+        if not self.widgets.rbt_mdi.get_sensitive():
+            self.command.abort()
+            self.command.mode(linuxcnc.MODE_MANUAL)
+            self.command.wait_complete()
+            self._show_error((13, _("It is not possible to change to MDI Mode at the moment")))
+            return
+        else:
+            # if we are in user tabs, we must reset the button
+            if self.widgets.tbtn_user_tabs.get_active():
+                self.widgets.tbtn_user_tabs.set_active(False)
+            if self.widgets.chk_use_kb_on_mdi.get_active():
+                self.widgets.ntb_info.set_current_page(1)
+            else:
+                self.widgets.ntb_info.set_current_page(0)
+            self.widgets.ntb_main.set_current_page(0)
+            self.widgets.ntb_button.set_current_page(_BB_MDI)
+            self.widgets.ntb_jog.set_current_page(1)
+            self.widgets.hal_mdihistory.entry.grab_focus()
+            self.widgets.rbt_mdi.set_active(True)
+            
+            # if the status changed, we reset the key event, otherwise the key press
+            # event will not change, if the user did the last change with keyboard shortcut
+            # This is caused, because we record the last key event to avoid multiple key
+            # press events by holding down the key. I.e. One press should only advance one increment
+            # on incremental jogging.
+            self.last_key_event = None, 0
+
+    def on_hal_status_mode_auto(self, widget):
+        print ("AUTO Mode")
+        # if Auto button is not sensitive, we are not ready for AUTO commands
+        # so we have to abort external commands and get back to manual mode
+        # This will happen mostly, if we are in settings mode, as we do disable the mode button
+        if not self.widgets.rbt_auto.get_sensitive():
+            self.command.abort()
+            self.command.mode(linuxcnc.MODE_MANUAL)
+            self.command.wait_complete()
+            self._show_error((13, _("It is not possible to change to Auto Mode at the moment")))
+            return
+        else:
+            # if we are in user tabs, we must reset the button
+            if self.widgets.tbtn_user_tabs.get_active():
+                self.widgets.tbtn_user_tabs.set_active(False)
+            self.widgets.ntb_main.set_current_page(0)
+            self.widgets.ntb_button.set_current_page(_BB_AUTO)
+            self.widgets.ntb_info.set_current_page(0)
+            self.widgets.ntb_jog.set_current_page(2)
+            self.widgets.rbt_auto.set_active(True)
+            
+            # if the status changed, we reset the key event, otherwise the key press
+            # event will not change, if the user did the last change with keyboard shortcut
+            # This is caused, because we record the last key event to avoid multiple key
+            # press events by holding down the key. I.e. One press should only advance one increment
+            # on incremental jogging.
+            self.last_key_event = None, 0
+
+    def on_hal_status_motion_mode_changed(self, widget, new_mode):
+        # Motion mode change in identity kinematics makes no sense
+        # so we will not react on the signal and correct the misbehavior
+        # self.stat.motion_mode return
+        # Mode 1 = joint ; Mode 2 = MDI ; Mode 3 = teleop
+        # so in mode 1 we have to show Joints and in Modes 2 and 3 axis values
+
+        widgetlist = ("rbt_mdi", "rbt_auto")
+        if new_mode == 1 and self.stat.kinematics_type != linuxcnc.KINEMATICS_IDENTITY:
+            self.widgets.gremlin.set_property("enable_dro", True)
+            self.widgets.gremlin.use_joints_mode = True
+            self.widgets.tbtn_switch_mode.set_active(True)
+            self.widgets.ntb_jog_JA.set_page(1)
+            state = False
+        else:
+            if not self.widgets.tbtn_fullsize_preview.get_active():
+                self.widgets.gremlin.set_property("enable_dro", False)
+            self.widgets.gremlin.use_joints_mode = False
+            self.widgets.tbtn_switch_mode.set_active(False)
+            self.widgets.ntb_jog_JA.set_page(0)
+            state = True
+        if self.stat.task_state != linuxcnc.STATE_ON:
+            state = False
+        self._sensitize_widgets(widgetlist, state)
+
+    # use the hal_status widget to control buttons and
+    # actions allowed by the user and sensitive widgets
+    def on_hal_status_all_homed(self, widget):
+        self.all_homed = True
+        self.widgets.ntb_button.set_current_page(_BB_MANUAL)
+        widgetlist = ["rbt_mdi", "rbt_auto", "btn_index_tool", "btn_change_tool", "btn_select_tool_by_no",
+                      "btn_tool_touchoff_x", "btn_tool_touchoff_z", "btn_touch", "tbtn_switch_mode"
+        ]
+        self._sensitize_widgets(widgetlist, True)
+        self._set_motion_mode(1)
+        if self.widgets.chk_reload_tool.get_active():
+            # if there is already a tool in spindle, the user 
+            # homed the second time, unfortunately we will then
+            # not get out of MDI mode any more
+            # That happen, because the tool in spindle did not change, so the 
+            # tool info is not updated and we self.change_tool will not be reseted
+            if self.stat.tool_in_spindle != 0:
+                return
+            self.reload_tool()
+            self.command.mode(linuxcnc.MODE_MANUAL)
+
+    def on_hal_status_not_all_homed(self, widget, joints):
+        self.all_homed = False
+        if self.gui.no_force_homing:
+            return
+        widgetlist = ["rbt_mdi", "rbt_auto", "btn_index_tool", "btn_touch", "btn_change_tool", "btn_select_tool_by_no",
+                      "btn_tool_touchoff_x", "btn_tool_touchoff_z", "btn_touch", "tbtn_switch_mode"
+        ]
+        self._sensitize_widgets(widgetlist, False)
+        self._set_motion_mode(0)
         
     def on_hal_status_file_loaded(self, widget, filename):
         widgetlist = ["btn_use_current" ]
@@ -1101,6 +1621,52 @@ class gmoccapy(object):
             self.halcomp["program.progress"] = 0.0
             # print("Progress = {0:.2f} %".format(100.00 * line / self.halcomp["program.length"]))
 
+    def on_hal_status_interp_idle(self, widget):
+        if self.load_tool:
+            return
+        widgetlist = ["rbt_manual", "ntb_jog", "btn_from_line",
+                      "tbtn_flood", "tbtn_mist", "rbt_forward", "rbt_reverse", "rbt_stop",
+                      "btn_load", "btn_edit", "tbtn_optional_blocks"
+        ]
+        if not self.widgets.rbt_hal_unlock.get_active() and not self.user_mode:
+            widgetlist.append("tbtn_setup")
+        if self.all_homed or self.gui.no_force_homing:
+            widgetlist.append("rbt_mdi")
+            widgetlist.append("rbt_auto")
+            widgetlist.append("btn_index_tool")
+            widgetlist.append("btn_change_tool")
+            widgetlist.append("btn_select_tool_by_no")
+            widgetlist.append("btn_tool_touchoff_x")
+            widgetlist.append("btn_tool_touchoff_z")
+            widgetlist.append("btn_touch")
+        # This happen because hal_glib does emmit the signals in the order that idle is emited later that estop
+        if self.stat.task_state == linuxcnc.STATE_ESTOP or self.stat.task_state == linuxcnc.STATE_OFF:
+            self._sensitize_widgets(widgetlist, False)
+        else:
+            self._sensitize_widgets(widgetlist, True)
+        for btn in self.macrobuttons:
+            btn.set_sensitive(True)
+            
+        if self.gui.onboard:
+            file = "keyboard.png"
+            filepath = os.path.join(IMAGEDIR, file)
+        else:
+            file = "stop.png"
+            filepath = os.path.join(IMAGEDIR, file)
+        image = self.gui.macro_dic["keyboard"].get_image()
+        image.set_from_file(filepath)
+        self.gui.macro_dic["keyboard"].show_all()
+        print ("new image = ",image)
+        self.widgets.btn_run.set_sensitive(True)
+
+        if self.tool_change:
+            self.command.mode(linuxcnc.MODE_MANUAL)
+            self.command.wait_complete()
+            self.tool_change = False
+
+        self.halcomp["program.current-line"] = 0
+        self.halcomp["program.progress"] = 0.0
+
     def on_hal_status_interp_run(self, widget):
         widgetlist = ["rbt_manual", "rbt_mdi", "rbt_auto", "tbtn_setup", "btn_index_tool",
                       "btn_from_line", "btn_change_tool", "btn_select_tool_by_no",
@@ -1114,8 +1680,16 @@ class gmoccapy(object):
         self._sensitize_widgets(widgetlist, False)
         self.widgets.btn_run.set_sensitive(False)
 
-        self.widgets.btn_show_kbd.set_image(self.widgets.img_brake_macro)
-        self.widgets.btn_show_kbd.set_property("tooltip-text", _("interrupt running macro"))
+        self.gui.macro_dic["keyboard"].set_image(self.widgets.img_brake_macro)
+        self.gui.macro_dic["keyboard"].set_property("tooltip-text", _("interrupt running macro"))
+
+    def on_hal_status_tool_in_spindle_changed(self, object, new_tool_no):
+        # need to save the tool in spindle as preference, to be able to reload it on startup
+        self.prefs.putpref("tool_in_spindle", new_tool_no, int)
+        self._update_toolinfo(new_tool_no)
+
+
+
 
 
 
@@ -1542,9 +2116,6 @@ class gmoccapy(object):
                 self.diameter_mode = True
 
 
-# helpers functions end
-# =========================================================
-
     def on_adj_dro_digits_value_changed(self, widget, data=None):
         if not self.initialized:
             return
@@ -1574,7 +2145,28 @@ class gmoccapy(object):
 
 
     def _offset_changed(self, pin, tooloffset):
-        self.gui.offset_changed((self.halcomp["tooloffset-x"], self.halcomp["tooloffset-z"]))
+        joint = None
+        for axis in ("x", "z"):
+            if axis in self.gui.axis_list:
+                joint = self.gui._get_joint_from_joint_axis_dic(axis)
+                break
+            else:
+                continue
+
+        # no X or Z axis in config, so we can not apply offsets
+        if joint is None:
+            self.widgets.lbl_tool_offset_z.hide()
+            self.widgets.lbl_tool_offset_x.hide()
+            return
+
+        dro = self.gui.dro_dic["Combi_DRO_{0}".format(joint)]
+
+        if dro.machine_units == _MM:
+            self.widgets.lbl_tool_offset_z.set_text("{0:.3f}".format(self.halcomp["tooloffset-z"]))
+            self.widgets.lbl_tool_offset_x.set_text("{0:.3f}".format(self.halcomp["tooloffset-x"]))
+        else:
+            self.widgets.lbl_tool_offset_z.set_text("{0:.4f}".format(self.halcomp["tooloffset-z"]))
+            self.widgets.lbl_tool_offset_x.set_text("{0:.4f}".format(self.halcomp["tooloffset-x"]))
 
     def on_offsetpage1_selection_changed(self, widget, system, name):
         if system not in self.system_list[1:] or self.widgets.tbtn_edit_offsets.get_active():
@@ -1755,95 +2347,6 @@ class gmoccapy(object):
     def _on_turtle_jog_enable(self, pin):
         self.widgets.tbtn_turtle_jog.set_active(pin.get())
 
-    def _on_btn_jog_pressed(self, object, joint_or_axis, direction, shift=False):
-        print(self, object, joint_or_axis, direction, shift)
-
-        # only in manual mode we will allow jogging the axis at this development state
-        if not self.stat.enabled or self.stat.task_mode != linuxcnc.MODE_MANUAL:
-            return
-
-        joint_btn = False
-        if not joint_or_axis.lower() in "xyzabcuvw":
-            # OK, it seems to be a Joints button
-            if joint_or_axis in "012345678":
-                joint_btn = True
-            else:
-                print ("unknown joint or axis {0}".format(joint_or_axis))
-                return
-
-        if not joint_btn:
-            # get the axisnumber
-            joint_axis_number = "xyzabcuvws".index(joint_or_axis.lower())
-        else:
-            joint_axis_number = "01234567".index(joint_or_axis)
-
-        # if shift = True, then the user pressed SHIFT for Jogging and
-        # want's to jog at full speed
-        if shift:
-            value = self.stat.max_velocity
-        else:
-            value = self.widgets.spc_lin_jog_vel.get_value() / 60
-
-        velocity = value * (1 / self.faktor)
-
-        if direction == "+":
-            dir = 1
-        else:
-            dir = -1
-
-        if self.stat.motion_mode == 1:
-            if self.stat.kinematics_type == linuxcnc.KINEMATICS_IDENTITY:
-                # this may happen, because the joints / axes has been unhomed
-                print("wrong motion mode, change to the correct one")
-                self._set_motion_mode(None, 1)
-                JOGMODE = 0
-            else:
-                JOGMODE = 1
-        else :
-            JOGMODE = 0
-        
-        if self.distance <> 0:  # incremental jogging
-            self.command.jog(linuxcnc.JOG_INCREMENT, JOGMODE, joint_axis_number, dir * velocity, self.distance)
-        else:  # continuous jogging
-            self.command.jog(linuxcnc.JOG_CONTINUOUS, JOGMODE, joint_axis_number, dir * velocity)
-
-    def _on_btn_jog_released(self, object, joint_or_axis, direction, shift=False):
-        # only in manual mode we will allow jogging the axis at this development state
-        if not self.stat.enabled or self.stat.task_mode != linuxcnc.MODE_MANUAL:
-            return
-
-        joint_btn = False
-        if not joint_or_axis.lower() in "xyzabcuvw":
-            # OK, it may be a Joints button
-            if joint_or_axis in "01234567":
-                joint_btn = True
-            else:
-                print ("unknown axis {0}".format(joint_or_axis))
-                return
-
-        if not joint_btn:
-            # get the axisnumber
-            joint_axis_number = "xyzabcuvw".index(joint_or_axis.lower())
-            print joint_axis_number
-        else:
-            joint_axis_number = "01234567".index(joint_or_axis)
-
-        if self.stat.motion_mode == 1:
-            if self.stat.kinematics_type == linuxcnc.KINEMATICS_IDENTITY:
-                # this may happen, because the joints / axes has been unhomed
-                print("wrong motion mode, change to the correct one")
-                self._set_motion_mode(None, 1)
-                JOGMODE = 0
-            else:
-                JOGMODE = 1
-        else :
-            JOGMODE = 0
-
-        # Otherwise the movement would stop before the desired distance was moved
-        if self.distance <> 0:
-            pass
-        else:
-            self.command.jog(linuxcnc.JOG_STOP, JOGMODE, joint_axis_number)
 
     # use the current loaded file to be loaded on start up
     def on_btn_use_current_clicked(self, widget, data=None):
@@ -1862,24 +2365,6 @@ class gmoccapy(object):
             if page_num != 1L:  # setup page is active,
                 self.widgets.tbtn_setup.set_active(False)
 
-
-# =========================================================
-# The homing functions
-
-    def _unhome_signal(self, object, joint):
-        self._set_motion_mode(object, 0)
-        self.all_homed = False
-        # -1 for all
-        self.command.unhome(joint)
-
-    def _home_signal(self, object, joint):
-        print("home signal joint", joint)
-        self._set_motion_mode(object, 0)
-        self.command.home(joint)
-        
-
-# The homing functions
-# =========================================================
 
     def _check_limits(self):
         for axis in self.axis_list:
@@ -3136,6 +3621,79 @@ class gmoccapy(object):
 
 # Hal Pin Handling End
 # =========================================================
+
+    # There are some settings we can only do if the window is on the screen already
+    def on_window1_show(self, widget, data=None):
+
+        # it is time to get the correct estop state and set the button status
+        self.stat.poll()
+        if self.stat.task_state == linuxcnc.STATE_ESTOP:
+            self.widgets.tbtn_estop.set_active(True)
+            self.widgets.tbtn_estop.set_image(self.widgets.img_emergency)
+            self.widgets.tbtn_on.set_image(self.widgets.img_machine_off)
+            self.widgets.tbtn_on.set_sensitive(False)
+        else:
+            self.widgets.tbtn_estop.set_active(False)
+            self.widgets.tbtn_estop.set_image(self.widgets.img_emergency_off)
+            self.widgets.tbtn_on.set_sensitive(True)
+
+        # if a file should be loaded, we will do so
+        file = self.prefs.getpref("open_file", "", str)
+        if file:
+            self.widgets.file_to_load_chooser.set_filename(file)
+            # self.command.program_open(file)
+            self.widgets.hal_action_open.load_file(file)
+
+        # check how to start the GUI
+        start_as = "rbtn_" + self.prefs.getpref("screen1", "window", str)
+        self.widgets[start_as].set_active(True)
+        if start_as == "rbtn_fullscreen":
+            self.widgets.window1.fullscreen()
+        elif start_as == "rbtn_maximized":
+            self.widgets.window1.maximize()
+        else:
+            self.xpos = int(self.prefs.getpref("x_pos", 40, float))
+            self.ypos = int(self.prefs.getpref("y_pos", 30, float))
+            self.width = int(self.prefs.getpref("width", 979, float))
+            self.height = int(self.prefs.getpref("height", 750, float))
+
+            # set the adjustments according to Window position and size
+            self.widgets.adj_x_pos.set_value(self.xpos)
+            self.widgets.adj_y_pos.set_value(self.ypos)
+            self.widgets.adj_width.set_value(self.width)
+            self.widgets.adj_height.set_value(self.height)
+
+            # move and resize the window
+            self.widgets.window1.move(self.xpos, self.ypos)
+            self.widgets.window1.resize(self.width, self.height)
+
+        self.command.mode(linuxcnc.MODE_MANUAL)
+        self.command.wait_complete()
+
+        self.initialized = True
+
+        # does the user want to show screen2
+        self._check_screen2()
+        if self.screen2:
+            self.widgets.tbtn_use_screen2.set_active(self.prefs.getpref("use_screen2", False, bool))
+
+    # kill keyboard and estop machine before closing
+    def on_window1_destroy(self, widget, data=None):
+        print "estoping / killing gmoccapy"
+        if self.gui.onboard:
+            self.gui._kill_keyboard()
+        self.command.state(linuxcnc.STATE_OFF)
+        self.command.state(linuxcnc.STATE_ESTOP)
+        gtk.main_quit()
+
+
+
+# =========================================================
+# side button handlers Start
+
+
+
+
 
 if __name__ == "__main__":
     app = gmoccapy(sys.argv)
