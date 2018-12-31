@@ -1,3 +1,7 @@
+ver. 0.9.2
+-still an error with player, as I forgot to set _AUDIO_AVAILABLE from
+ global to self
+
 ver. 0.9.1
 - as gst import caused an error added a try except to avoid that error if 
   the corresponding package is not installed

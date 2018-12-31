@@ -75,7 +75,7 @@ sys.excepthook = excepthook
 
 # constants
 #         # FastSeal  #"
-_RELEASE = "  0.9.1"
+_RELEASE = "  0.9.2"
 _INCH = 0                         # imperial units are active
 _MM = 1                           # metric units are active
 _TEMPDIR = tempfile.gettempdir()  # Now we know where the tempdir is, usualy /tmp
@@ -202,6 +202,7 @@ class FastSeal( object ):
         self.default_theme = gtk.settings_get_default().get_property( "gtk-theme-name" )
 
         # the sounds to play if an error or message rises
+        self._AUDIO_AVAILABLE = _AUDIO_AVAILABLE
         self.alert_sound = "/usr/share/sounds/freedesktop/stereo/dialog-error.wav"
         self.error_sound = "/usr/share/sounds/freedesktop/stereo/dialog-question.ogg"
 
