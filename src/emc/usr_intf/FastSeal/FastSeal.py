@@ -75,7 +75,7 @@ sys.excepthook = excepthook
 
 # constants
 #         # FastSeal  #"
-_RELEASE = "  0.9.2"
+_RELEASE = "  0.9.3"
 _INCH = 0                         # imperial units are active
 _MM = 1                           # metric units are active
 _TEMPDIR = tempfile.gettempdir()  # Now we know where the tempdir is, usualy /tmp
@@ -705,7 +705,6 @@ class FastSeal( object ):
         label = _( "Continuous" )
         rbt0 = gtk.RadioButton( None, label )
         rbt0.connect( "pressed", self.on_increment_changed, 0 )
-        #self.widgets.vbtb_jog_incr.pack_start( rbt0, True, True, 0 )
         rbt0.set_property( "draw_indicator", False )
         rbt0.show()
         #rbt0.modify_bg( gtk.STATE_ACTIVE, gtk.gdk.color_parse( "#FFFF00" ) )
@@ -717,7 +716,6 @@ class FastSeal( object ):
             rbt = "rbt%d" % ( item )
             rbt = gtk.RadioButton( rbt0, self.jog_increments[item] )
             rbt.connect( "pressed", self.on_increment_changed, self.jog_increments[item] )
-            #self.widgets.vbtb_jog_incr.pack_start( rbt, True, True, 0 )
             rbt.set_property( "draw_indicator", False )
             #rbt.show()
             #rbt.modify_bg( gtk.STATE_ACTIVE, gtk.gdk.color_parse( "#FFFF00" ) )
@@ -1319,14 +1317,13 @@ class FastSeal( object ):
         self.widgets.tbtn_on.set_sensitive( True )
         self.widgets.ntb_jog.set_sensitive( True )
         self.widgets.tbl_jog_btn.set_sensitive( False )
-        #self.widgets.vbtb_jog_incr.set_sensitive( False )
         self.widgets.hbox_jog_vel.set_sensitive( False )
         self.widgets.chk_ignore_limits.set_sensitive( True )
         self._check_limits()
 
     def on_hal_status_state_off( self, widget ):
         widgetlist = ["rbt_manual", "rbt_mdi", "rbt_auto", "btn_homing", "btn_touch", "btn_tool",
-                      "hbox_jog_vel", "tbl_jog_btn", "vbtb_jog_incr", "rbt_forward", "btn_index_tool",
+                      "hbox_jog_vel", "tbl_jog_btn", "rbt_forward", "btn_index_tool",
                       "rbt_reverse", "rbt_stop", "btn_change_tool", "btn_select_tool_by_no",
                       "spc_max_vel", "spc_spindle", "btn_tool_touchoff_x", "btn_tool_touchoff_z"
         ]
@@ -1514,7 +1511,7 @@ class FastSeal( object ):
 
     def _update_widgets( self, state ):
         widgetlist = ["rbt_manual", "btn_homing", "btn_touch", "btn_tool",
-                      "hbox_jog_vel", "tbl_jog_btn", "vbtb_jog_incr", "rbt_forward", "btn_index_tool",
+                      "hbox_jog_vel", "tbl_jog_btn", "rbt_forward", "btn_index_tool",
                       "rbt_reverse", "rbt_stop", "btn_change_tool", "btn_select_tool_by_no",
                       "spc_max_vel", "spc_spindle", "btn_tool_touchoff_x", "btn_tool_touchoff_z"
         ]
