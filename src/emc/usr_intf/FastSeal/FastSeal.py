@@ -75,7 +75,7 @@ sys.excepthook = excepthook
 
 # constants
 #         # FastSeal  #"
-_RELEASE = "  0.9.3"
+_RELEASE = "  0.9.4"
 _INCH = 0                         # imperial units are active
 _MM = 1                           # metric units are active
 _TEMPDIR = tempfile.gettempdir()  # Now we know where the tempdir is, usualy /tmp
@@ -2163,7 +2163,17 @@ class FastSeal( object ):
         else:
             direction = -1
 
-        JOGMODE = 0
+        if self.stat.motion_mode == 1:
+            if self.stat.kinematics_type == linuxcnc.KINEMATICS_IDENTITY:
+                # this may happen, because the joints / axes has been unhomed
+                print("wrong motion mode, change to the correct one")
+                self.set_motion_mode(1)
+                JOGMODE = 0
+            else:
+                JOGMODE = 1
+        else :
+            JOGMODE = 0
+
         if self.distance <> 0:  # incremental jogging
             self.command.jog(linuxcnc.JOG_INCREMENT, JOGMODE, axisnumber, direction * velocity, self.distance)
         else:  # continuous jogging
@@ -2182,7 +2192,17 @@ class FastSeal( object ):
 
         axis = "xyzabcuvw".index( axisletter.lower() )
 
-        JOGMODE = 0
+        if self.stat.motion_mode == 1:
+            if self.stat.kinematics_type == linuxcnc.KINEMATICS_IDENTITY:
+                # this may happen, because the joints / axes has been unhomed
+                print("wrong motion mode, change to the correct one")
+                self.set_motion_mode(1)
+                JOGMODE = 0
+            else:
+                JOGMODE = 1
+        else :
+            JOGMODE = 0
+
         # Otherwise the movement would stop before the desired distance was moved
         if self.distance <> 0:
             pass
