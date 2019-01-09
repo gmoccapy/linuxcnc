@@ -37,3 +37,7 @@ net spindle        FastSeal.spindle-override.count-enable   <=   pendant.spindle
 net maxvel         FastSeal.max-velocity.count-enable       <=   pendant.maxvel
 net jogvel         FastSeal.jog-speed.count-enable          <=   pendant.jogvel 
 
+net x-minus        FastSeal.jog-x-minus                     <=   pendant.jog_X_minus
+net x-plus         FastSeal.jog-x-plus                      <=   pendant.jog_X_plus
+net z-minus        FastSeal.jog-z-minus                     <=   pendant.jog_Z_minus
+net z-plus         FastSeal.jog-z-plus                      <=   pendant.jog_Z_plus
