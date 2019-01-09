@@ -49,7 +49,6 @@ from gladevcp.gladebuilder import GladeBuilder
 
 from time import strftime   # needed to add a time stamp with alarm entries
 from time import localtime  # needed to add a time stamp with alarm entries
-from ImageChops import difference
 
 # Throws up a dialog with debug info when an error is encountered
 def excepthook( exc_type, exc_obj, exc_tb ):
@@ -75,7 +74,7 @@ sys.excepthook = excepthook
 
 # constants
 #         # FastSeal  #"
-_RELEASE = "  0.9.4.1"
+_RELEASE = "  0.9.4.2"
 _INCH = 0                         # imperial units are active
 _MM = 1                           # metric units are active
 _TEMPDIR = tempfile.gettempdir()  # Now we know where the tempdir is, usualy /tmp
