@@ -1,4 +1,4 @@
-FASTSEAL_MODULES = dialogs getiniinfo notification player preferences widgets
+FASTSEAL_MODULES = dialogs getiniinfo notification preferences widgets
 
 PYTARGETS += ../bin/FastSeal ../lib/python/FastSeal/__init__.py $(patsubst %,../lib/python/FastSeal/%.py,$(FASTSEAL_MODULES)) \
 	../share/FastSeal/FastSeal.glade 

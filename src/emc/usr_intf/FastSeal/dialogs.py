@@ -31,6 +31,7 @@ import pango
 # This dialog is for unlocking the system tab
 # The unlock code number is defined at the top of the page
 def system_dialog(self):
+    print("dialogs - system_dialog", self)
     dialog = gtk.Dialog(_("Enter System Unlock Code"),
                self.widgets.window1,
                gtk.DIALOG_DESTROY_WITH_PARENT,
@@ -58,6 +59,7 @@ def system_dialog(self):
 
 
 def entry_dialog(self, data = None, header = _("Enter value") , label = _("Enter the value to set"), integer = False):
+    print("dialogs - entry_dialog", self, data, header, label,integer)
     dialog = gtk.Dialog(header,
                self.widgets.window1,
                gtk.DIALOG_DESTROY_WITH_PARENT,
@@ -93,6 +95,7 @@ def entry_dialog(self, data = None, header = _("Enter value") , label = _("Enter
 
 # display warning dialog
 def warning_dialog(self, message, secondary = None, title = _("Operator Message")):
+    print("dialogs - warning_dialog", self, message, secondary, title)
     dialog = gtk.MessageDialog(self.widgets.window1,
         gtk.DIALOG_DESTROY_WITH_PARENT,
         gtk.MESSAGE_INFO, gtk.BUTTONS_OK, message)
@@ -106,6 +109,7 @@ def warning_dialog(self, message, secondary = None, title = _("Operator Message"
     return responce == gtk.RESPONSE_OK
 
 def yesno_dialog(self, message, title = _("Operator Message")):
+    print("dialogs - yesno_dialog", self, message, title)
     dialog = gtk.MessageDialog(self.widgets.window1,
                                gtk.DIALOG_DESTROY_WITH_PARENT,
                                gtk.MESSAGE_QUESTION,
@@ -118,6 +122,7 @@ def yesno_dialog(self, message, title = _("Operator Message")):
     return responce == gtk.RESPONSE_YES
 
 def show_user_message(self, message, title = _("Operator Message")):
+    print("dialogs - show_user_message", self, message, title)
     dialog = gtk.MessageDialog(self.widgets.window1,
                                gtk.DIALOG_DESTROY_WITH_PARENT,
                                gtk.MESSAGE_INFO,
@@ -131,6 +136,7 @@ def show_user_message(self, message, title = _("Operator Message")):
 
 # dialog for run from line
 def restart_dialog(self):
+    print("dialogs - restart_dialog", self)
 
     # highlight the gcode down one line lower
     # used for run-at-line restart

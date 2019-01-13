@@ -34,11 +34,11 @@ import hal_glib           # needed to make our own hal pins
 import gtk                # base for pygtk widgets and constants
 import sys                # handle system calls
 import os                 # needed to get the paths and directories
-import pango              # needed for font settings and changing
+#import pango              # needed for font settings and changing
 import gladevcp.makepins  # needed for the dialog"s calculator widget
 import atexit             # needed to register child's to be closed on closing the GUI
 import subprocess         # to launch onboard and other processes
-import vte                # To get the embedded terminal
+#import vte                # To get the embedded terminal
 import tempfile           # needed only if the user click new in edit mode to open a new empty file
 import linuxcnc           # to get our own error system
 import gobject            # needed to add the timer for periodic
@@ -48,10 +48,11 @@ import gettext            # to extract the strings to be translated
 from gladevcp.gladebuilder import GladeBuilder
 
 from time import strftime   # needed to add a time stamp with alarm entries
-from time import localtime  # needed to add a time stamp with alarm entries
+#from time import localtime  # needed to add a time stamp with alarm entries
 
 # Throws up a dialog with debug info when an error is encountered
 def excepthook( exc_type, exc_obj, exc_tb ):
+    print(strftime( "%H:%M:%S" ) + "FastSeal  - excepthook", exc_type, exc_obj, exc_tb)
     try:
         w = app.widgets.window1
     except KeyboardInterrupt:
@@ -74,7 +75,7 @@ sys.excepthook = excepthook
 
 # constants
 #         # FastSeal  #"
-_RELEASE = "  0.9.4.2"
+_RELEASE = "  0.9.5"
 _INCH = 0                         # imperial units are active
 _MM = 1                           # metric units are active
 _TEMPDIR = tempfile.gettempdir()  # Now we know where the tempdir is, usualy /tmp
@@ -90,14 +91,6 @@ from FastSeal import notification  # this is the module we use for our error han
 from FastSeal import preferences   # this handles the preferences
 from FastSeal import getiniinfo    # this handles the INI File reading so checking is done in that module
 from FastSeal import dialogs       # this takes the code of all our dialogs
-
-_AUDIO_AVAILABLE = False
-try:
-    import gst
-    from FastSeal import player        # a class to handle sounds
-    _AUDIO_AVAILABLE = True
-except:
-    pass
 
 # set up paths to files, part two
 CONFIGPATH = os.environ['CONFIG_DIR']
@@ -123,6 +116,7 @@ INVISABLE = gtk.gdk.Cursor( pixmap, pixmap, color, color, 0, 0 )
 
 class FastSeal( object ):
     def __init__( self ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - __init__", self)
 
         # prepare for translation / internationalisation
         locale.setlocale( locale.LC_ALL, '' )
@@ -200,11 +194,6 @@ class FastSeal( object ):
         # the default theme = System Theme we store here to be able to go back to that one later
         self.default_theme = gtk.settings_get_default().get_property( "gtk-theme-name" )
 
-        # the sounds to play if an error or message rises
-        self._AUDIO_AVAILABLE = _AUDIO_AVAILABLE
-        self.alert_sound = "/usr/share/sounds/freedesktop/stereo/dialog-error.wav"
-        self.error_sound = "/usr/share/sounds/freedesktop/stereo/dialog-question.ogg"
-
         # Our own clas to get information from ini the file we use this way, to be sure
         # to get a valid result, as the checks are done in that module
         self.get_ini_info = getiniinfo.GetIniInfo()
@@ -235,8 +224,6 @@ class FastSeal( object ):
         self._init_dynamic_tabs()
         self._init_tooleditor()
         self._init_themes()
-        if self._AUDIO_AVAILABLE:
-            self._init_audio()
         self._init_gremlin()
         self._init_hide_cursor()
         self._init_offsetpage()
@@ -592,6 +579,7 @@ class FastSeal( object ):
         gobject.timeout_add( 100, self._periodic )  # time between calls to the function, in milliseconds
 
     def _get_axis_list( self ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _get_axis_list", self)
         temp = self.get_ini_info.get_coordinates()
         self.axis_list = []
         for letter in temp:
@@ -602,6 +590,7 @@ class FastSeal( object ):
             self.axis_list.append( letter.lower() )
 
     def _init_preferences( self ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _init_preferences", self)
         
         # check if NO_FORCE_HOMING is used in ini
         self.no_force_homing = self.get_ini_info.get_no_force_homing()
@@ -673,6 +662,7 @@ class FastSeal( object ):
         self.widgets.adj_scale_feed_override.set_value( self.scale_feed_override )
  
     def _init_axis_size( self ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _init_axis_size", self)
         self.dro_size = int( self.prefs.getpref( "dro_size", 28, int ) )
         self.widgets.adj_dro_size.set_value( self.dro_size )
 
@@ -682,6 +672,7 @@ class FastSeal( object ):
 
 
     def _init_jog_increments( self ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _init_jog_increments", self)
         # Now we will build the option buttons to select the Jog-rates
         # We do this dynamicly, because users are able to set them in INI File
         # because of space on the screen only 10 items are allowed
@@ -726,6 +717,7 @@ class FastSeal( object ):
 # Dynamic tabs handling Start
 
     def _init_dynamic_tabs( self ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _init_dynamic_tabs", self)
         # dynamic tabs setup
         self._dynamic_childs = {}
         # register all tabs, so they will be closed together with the GUI
@@ -740,6 +732,7 @@ class FastSeal( object ):
 
         try:
             for t, c, name in zip( tab_names, tab_cmd, tab_location ):
+                print(t,c,name,self.widgets[name])
                 nb = self.widgets[name]
                 xid = self._dynamic_tab( nb, t )
                 if not xid: continue
@@ -752,6 +745,7 @@ class FastSeal( object ):
 
     # adds the embedded object to a notebook tab or box
     def _dynamic_tab( self, widget, text ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _dynamic_tab", widget, text)
         s = gtk.Socket()
         try:
             widget.append_page( s, gtk.Label( " " + text + " " ) )
@@ -764,6 +758,7 @@ class FastSeal( object ):
 
     # Gotta kill the embedded processes when FastSeal closes
     def _kill_dynamic_childs( self ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _kill_dynamic_childs", self)
         for child in self._dynamic_childs.values():
             child.terminate()
 
@@ -774,6 +769,7 @@ class FastSeal( object ):
     # if it's a lathe config we show lathe related columns
     # and we load the tooltable data
     def _init_tooleditor( self ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _init_tooleditor", self)
         self.widgets.tooledit1.set_visible( "abcxyzuvwijq", False )
         for axis in self.axis_list:
             if axis == self.axisletter_four:
@@ -793,6 +789,7 @@ class FastSeal( object ):
         self.widgets.tooledit1.set_filename( toolfile )
 
     def _init_themes( self ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _init_themes", self)
         # If there are themes then add them to combo box
         model = self.widgets.theme_choice.get_model()
         model.clear()
@@ -823,32 +820,9 @@ class FastSeal( object ):
         if not theme_name == "Follow System Theme":
             settings.set_string_property( "gtk-theme-name", theme_name, "" )
 
-    def _init_audio( self ):
-        # try to add ability for audio feedback to user.
-        try:
-            import gst
-
-            self._AUDIO_AVAILABLE = True
-            print ( _( "**** FASTSEAL INFO ****" ) )
-            print ( _( "**** audio available! ****" ) )
-        except:
-            print ( _( "**** FASTSEAL INFO ****" ) )
-            print ( _( "**** no audio available! ****" ) )
-            print( _( "**** PYGST libray not installed? ****" ) )
-            return
-
-        if self._AUDIO_AVAILABLE:
-            self.audio = player.Player()
-            self.alert_sound = self.prefs.getpref( 'audio_alert', self.alert_sound, str )
-            self.error_sound = self.prefs.getpref( 'audio_error', self.error_sound, str )
-            self.widgets.audio_alert_chooser.set_filename( self.alert_sound )
-            self.widgets.audio_error_chooser.set_filename( self.error_sound )
-        else:
-            self.widgets.audio_alert_chooser.set_sensitiv( False )
-            self.widgets.audio_error_chooser.set_sensitiv( False )
-
     # init the preview
     def _init_gremlin( self ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _init_gremlin", self)
         grid_size = self.prefs.getpref( 'grid_size', 1.0, float )
         self.widgets.grid_size.set_value( grid_size )
         self.widgets.gremlin.grid_size = grid_size
@@ -865,6 +839,7 @@ class FastSeal( object ):
 
     # init the function to hide the cursor
     def _init_hide_cursor( self ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _init_hide_cursor", self)
         hide_cursor = self.prefs.getpref( 'hide_cursor', False, bool )
         self.widgets.chk_hide_cursor.set_active( hide_cursor )
         # if hide cursor requested
@@ -878,6 +853,7 @@ class FastSeal( object ):
 
 
     def _init_offsetpage( self ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _init_offsetpage", self)
         temp = "xyzabcuvw"
         self.widgets.offsetpage1.set_col_visible( temp, False )
         temp = ""
@@ -919,6 +895,7 @@ class FastSeal( object ):
 
     # Icon file selection stuff
     def _init_IconFileSelection( self ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _init_Icon_FileSelection", self)
         self.widgets.IconFileSelection1.set_property( "start_dir", self.get_ini_info.get_program_prefix() )
 
         file_ext = self.get_ini_info.get_file_ext()
@@ -945,6 +922,7 @@ class FastSeal( object ):
 
     # init the keyboard shortcut bindings
     def _init_keybindings( self ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _init_keybindings", self)
         try:
             accel_group = gtk.AccelGroup()
             self.widgets.window1.add_accel_group( accel_group )
@@ -957,6 +935,7 @@ class FastSeal( object ):
     # Initialize the file to load dialog, setting an title and the correct
     # folder as well as a file filter
     def _init_file_to_load( self ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _init_file_to_load", self)
         file_dir = self.get_ini_info.get_program_prefix()
         self.widgets.file_to_load_chooser.set_current_folder( file_dir )
         title = _( "Select the file you want to be loaded at program start" )
@@ -973,6 +952,7 @@ class FastSeal( object ):
     # okdialog displays a GTK dialog box with an ok button
     # dialogs require an answer before focus is sent back to main screen
     def _init_user_messages( self ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _init_user_messages", self)
         user_messages = self.get_ini_info.get_user_messages()
         print user_messages
         if not user_messages:
@@ -997,6 +977,7 @@ class FastSeal( object ):
                 print( _( "**** FASTSEAL ERROR **** /n Message type %s not suported" % message[1] ) )
 
     def _show_user_message( self, pin, message ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _show_user_message", pin, message)
         if message[1] == "status":
             if pin.get():
                 self._show_error( ( 0, message[0] ) )
@@ -1021,6 +1002,7 @@ class FastSeal( object ):
             print( _( "**** FASTSEAL ERROR **** /n Message type %s not suported" % message[1] ) )
 
     def _show_offset_tab( self, state ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _show_offset_tab", state)
         page = self.widgets.ntb_preview.get_nth_page( 1 )
         if page.get_visible() and state or not page.get_visible() and not state:
             return
@@ -1041,6 +1023,7 @@ class FastSeal( object ):
                 self.widgets.ntb_preview.set_property( "show-tabs", state )
 
     def _show_tooledit_tab( self, state ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _show_tooledit_tab", state)
         page = self.widgets.ntb_preview.get_nth_page( 2 )
         if page.get_visible() and state or not page.get_visible() and not state:
             return
@@ -1058,6 +1041,7 @@ class FastSeal( object ):
             self.widgets.ntb_preview.set_current_page( 0 )
 
     def _show_iconview_tab( self, state ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _show_iconview_tab", state)
         page = self.widgets.ntb_preview.get_nth_page( 3 )
         if page.get_visible() and state or not page.get_visible() and not state:
             return
@@ -1102,6 +1086,7 @@ class FastSeal( object ):
         return True
 
     def _show_error( self, error ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _show_error", error)
         kind, text = error
         if "joint" in text:
             for letter in self.axis_list:
@@ -1120,14 +1105,8 @@ class FastSeal( object ):
             text = _( "Unknown error type and no error text given" )
         self.notification.add_message( text, icon )
 
-        if self._AUDIO_AVAILABLE:
-            if kind == 1 or kind == 11:
-                self.audio.set_sound( self.error_sound )
-            else:
-                self.audio.set_sound( self.alert_sound )
-            self.audio.run()
-
     def on_gremlin_gcode_error( self, widget, errortext ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _on_gremlin_gcode_error", widget, errortext)
         if self.gcodeerror == errortext:
             return
         else:
@@ -1141,6 +1120,7 @@ class FastSeal( object ):
 
     # toggle emergency button
     def on_tbtn_estop_toggled( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_estop_toggled", widget, data)
         if widget.get_active():  # estop is active, open circuit
             self.command.state( linuxcnc.STATE_ESTOP )
             self.command.wait_complete()
@@ -1157,6 +1137,7 @@ class FastSeal( object ):
 
     # toggle machine on / off button
     def on_tbtn_on_toggled( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_tbtn_on_toggled", widget, data)
         if widget.get_active():
             if self.stat.task_state == linuxcnc.STATE_ESTOP:
                 widget.set_active( False )
@@ -1176,25 +1157,30 @@ class FastSeal( object ):
             self._update_widgets( False )
 
     def set_motion_mode(self, state):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - set_motion_mode", state)
         # 1:teleop, 0: joint
         self.command.teleop_enable(state)
         self.command.wait_complete()
 
     # The mode buttons
     def on_rbt_manual_pressed( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_rbt_manual_pressed", widget, data)
         self.command.mode( linuxcnc.MODE_MANUAL )
         self.command.wait_complete()
 
     def on_rbt_mdi_pressed( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_rbt_mdi_pressed", widget, data)
         self.command.mode( linuxcnc.MODE_MDI )
         self.command.wait_complete()
 
     def on_rbt_auto_pressed( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_rbt_auto_pressed", widget, data)
         self.command.mode( linuxcnc.MODE_AUTO )
         self.command.wait_complete()
 
     # If button exit is clicked, press emergency button bevor closing the application
     def on_btn_exit_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_exit_clicked", widget, data)
         self.widgets.window1.destroy()
 
 # button handlers End
@@ -1206,6 +1192,7 @@ class FastSeal( object ):
     # use the hal_status widget to control buttons and
     # actions allowed by the user and sensitive widgets
     def on_hal_status_all_homed( self, widget ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_hal_status_all_homed", widget)
         self.all_homed = True
         self.widgets.ntb_button.set_current_page( 0 )
         widgetlist = ["rbt_mdi", "rbt_auto", "btn_index_tool", "btn_change_tool", "btn_select_tool_by_no",
@@ -1214,6 +1201,7 @@ class FastSeal( object ):
         self._sensitize_widgets( widgetlist, True )
 
     def on_hal_status_not_all_homed( self, *args ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_hal_status_not_all_homed", args)
         self.all_homed = False
         if self.no_force_homing:
             return
@@ -1223,10 +1211,10 @@ class FastSeal( object ):
         self._sensitize_widgets( widgetlist, False )
 
     def on_hal_status_homed( self, widget, data ):
-        print("Data = ", data)
-        pass
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_hal_status_homeded", widget, data)
 
     def on_hal_status_file_loaded( self, widget, filename ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_hal_status_file_loaded", widget, filename)
         widgetlist = ["btn_use_current" ]
         # this test is only neccesary, because of remap and toolchange, it will emit a file loaded signal
         if filename:
@@ -1245,6 +1233,7 @@ class FastSeal( object ):
             self.widgets.lbl_program.set_text( _( "No file loaded" ) )
 
     def on_hal_status_line_changed( self, widget, line ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_hal_status_line_changed", widget, line)
         self.halcomp["program.current-line"] = line
         # this test is only neccesary, because of remap and toolchange, it will emit a file loaded signal
         if self.halcomp["program.length"] > 0:
@@ -1253,6 +1242,7 @@ class FastSeal( object ):
             self.halcomp["program.progress"] = 0.0
 
     def on_hal_status_interp_idle( self, widget ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_hal_status_interp_idle", widget)
         widgetlist = ["rbt_manual", "ntb_jog", "btn_from_line",
                      "rbt_forward", "rbt_reverse", "rbt_stop",
                       "btn_load", "btn_edit", "tbtn_optional_blocks"
@@ -1282,6 +1272,7 @@ class FastSeal( object ):
         self.halcomp["program.progress"] = 0.0
 
     def on_hal_status_interp_run( self, widget ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_hal_status_interp_run", widget)
         widgetlist = ["rbt_manual", "rbt_mdi", "rbt_auto", "tbtn_setup", "btn_index_tool",
                       "btn_from_line", "btn_change_tool", "btn_select_tool_by_no",
                       "btn_load", "btn_edit", "tbtn_optional_blocks", "rbt_reverse", "rbt_stop", "rbt_forward",
@@ -1298,9 +1289,11 @@ class FastSeal( object ):
         self.widgets.btn_show_kbd.set_property( "tooltip-text", _( "interrupt running macro" ) )
 
     def on_hal_status_tool_in_spindle_changed( self, object, new_tool_no ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_hal_tool_in_spindle_changed", object, new_tool_no)
         self._update_toolinfo( new_tool_no )
 
     def on_hal_status_state_estop( self, widget = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_hal_status_state_estop", widget)
         self.widgets.tbtn_estop.set_active( True )
         self.widgets.tbtn_estop.set_image( self.widgets.img_emergency )
         self.widgets.tbtn_on.set_image( self.widgets.img_machine_on )
@@ -1310,6 +1303,7 @@ class FastSeal( object ):
         self.command.mode( linuxcnc.MODE_MANUAL )
 
     def on_hal_status_state_estop_reset( self, widget = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_hal_status_state_estop_reset", widget)
         self.widgets.tbtn_estop.set_active( False )
         self.widgets.tbtn_estop.set_image( self.widgets.img_emergency_off )
         self.widgets.tbtn_on.set_image( self.widgets.img_machine_off )
@@ -1321,6 +1315,7 @@ class FastSeal( object ):
         self._check_limits()
 
     def on_hal_status_state_off( self, widget ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_hal_status_state_off", widget)
         widgetlist = ["rbt_manual", "rbt_mdi", "rbt_auto", "btn_homing", "btn_touch", "btn_tool",
                       "hbox_jog_vel", "tbl_jog_btn", "rbt_forward", "btn_index_tool",
                       "rbt_reverse", "rbt_stop", "btn_change_tool", "btn_select_tool_by_no",
@@ -1337,6 +1332,7 @@ class FastSeal( object ):
         self.widgets.ntb_jog.set_current_page( 0 )
 
     def on_hal_status_state_on( self, widget ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_hal_status_state_on", widget)
         widgetlist = ["rbt_manual", "btn_homing", "btn_touch", "btn_tool",
                       "ntb_jog", "rbt_forward",
                       "rbt_reverse", "rbt_stop", "spc_max_vel", "spc_spindle"
@@ -1352,6 +1348,7 @@ class FastSeal( object ):
             self.command.wait_complete()
 
     def on_hal_status_mode_manual( self, widget ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_hal_status_state_mode_manual", widget)
         self.widgets.rbt_manual.set_active( True )
         # setup page will be activated, if we don't leave, the pages will be reset with this call
         if self.widgets.tbtn_setup.get_active() == True:
@@ -1362,6 +1359,7 @@ class FastSeal( object ):
         self._check_limits()
 
     def on_hal_status_mode_mdi( self, widget ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_hal_status_state_mode_mdi", widget)
         # self.tool_change is set only if the tool change was commanded
         # from tooledit widget/page, so we do not want to switch the
         # screen layout to MDI, but set the manual widgets
@@ -1387,6 +1385,7 @@ class FastSeal( object ):
             self.widgets.rbt_mdi.set_active( True )
 
     def on_hal_status_mode_auto( self, widget ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_hal_status_state_mode_auto", widget)
         # if Auto button is not sensitive, we are not ready for AUTO commands
         # so we have to aboart external commands and get back to manual mode
         # This will hapen mostly, if we are in settings mode, as we do disable the mode button
@@ -1407,6 +1406,7 @@ class FastSeal( object ):
 
     # There are some settings we can only do if the window is on the screen allready
     def on_window1_show( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_window1_show", widget, data)
 
         # it is time to get the correct estop state and set the button status
         self.stat.poll()
@@ -1459,12 +1459,14 @@ class FastSeal( object ):
 
     # kill keyboard and estop machine before closing
     def on_window1_destroy( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_window1_destroy", widget, data)
         self.command.state( linuxcnc.STATE_OFF )
         self.command.state( linuxcnc.STATE_ESTOP )
         gtk.main_quit()
 
     # What to do if a macro button has been pushed
     def _on_btn_macro_pressed( self, widget = None, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_macro_pressed", widget, data)
         o_codes = data.split()
         subroutines_path = self.get_ini_info.get_subroutine_path()
         if not subroutines_path:
@@ -1509,6 +1511,7 @@ class FastSeal( object ):
 # =========================================================
 
     def _update_widgets( self, state ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _update_widgets", state)
         widgetlist = ["rbt_manual", "btn_homing", "btn_touch", "btn_tool",
                       "hbox_jog_vel", "tbl_jog_btn", "rbt_forward", "btn_index_tool",
                       "rbt_reverse", "rbt_stop", "btn_change_tool", "btn_select_tool_by_no",
@@ -1517,6 +1520,7 @@ class FastSeal( object ):
         self._sensitize_widgets( widgetlist, state )
 
     def _switch_to_g7( self, state ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _switch_to_g7", state)        
         if state:
             self.diameter_mode = True
             self.widgets.Combi_DRO_x.change_axisletter("D")
@@ -1527,6 +1531,7 @@ class FastSeal( object ):
         self.widgets.Combi_DRO_x.set_to_diameter(state)
 
     def on_key_event( self, widget, event, signal ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_key_event", widget, event, signal)
 
         # get the keyname
         keyname = gtk.gdk.keyval_name( event.keyval )
@@ -1708,6 +1713,7 @@ class FastSeal( object ):
 
     # Notification stuff.
     def init_notification( self ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - init_notifications", self)
         start_as = "rbtn_" + self.prefs.getpref( "screen1", "window", str )
         xpos, ypos = self.widgets.window1.window.get_origin()
         self.notification.set_property( 'x_pos', self.widgets.adj_x_pos_popup.get_value() )
@@ -1722,6 +1728,7 @@ class FastSeal( object ):
 
     # This is the jogging part
     def on_increment_changed( self, widget = None, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_invrement_changed", widget, data)
         if self.stat.interp_state != linuxcnc.INTERP_IDLE:
             return
 
@@ -1733,12 +1740,14 @@ class FastSeal( object ):
         self.active_increment = widget.__name__
 
     def _from_internal_linear_unit( self, v, unit = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _from_internal_linear_unit", v, unit)
         if unit is None:
             unit = self.stat.linear_units
         lu = ( unit or 1 ) * 25.4
         return v * lu
 
     def _parse_increment( self, jogincr ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _parse_increment", jogincr)        
         if jogincr.endswith( "mm" ):
             scale = self._from_internal_linear_unit( 1 / 25.4 )
         elif jogincr.endswith( "cm" ):
@@ -1760,6 +1769,7 @@ class FastSeal( object ):
         return jogincr * scale
 
     def _replace_list_item( self, int_tab, old_value, new_value ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _replace_list_item", int_tab, old_value, new_value)
         list = self.h_tabs[int_tab]
         self.h_tabs[int_tab] = []
         for item in list:
@@ -1772,6 +1782,7 @@ class FastSeal( object ):
 
     # check if macros are in the INI file and add them to MDI Button List
     def _add_macro_button( self ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _add_macro_button", self)
         macros = self.get_ini_info.get_macros()
         num_macros = len( macros )
         if num_macros > 9:
@@ -1806,6 +1817,7 @@ class FastSeal( object ):
         self.widgets.hbtb_MDI.non_homogeneous = False
 
     def show_try_errors( self ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - show_try_errors", self)
         exc_type, exc_value, exc_traceback = sys.exc_info()
         formatted_lines = traceback.format_exc().splitlines()
         print( _( "**** FASTSEAL ERROR ****" ) )
@@ -1814,6 +1826,7 @@ class FastSeal( object ):
         print ( formatted_lines[-1] )
 
     def _sensitize_widgets( self, widgetlist, value ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - sensitize_widgets", widgetlist, value)
         for name in widgetlist:
             try:
                 self.widgets[name].set_sensitive( value )
@@ -1823,6 +1836,7 @@ class FastSeal( object ):
                 traceback.print_exc()
 
     def _update_active_gcodes( self ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _update_active_gcodes", self)
         # active G codes
         active_codes = []
         temp = []
@@ -1842,6 +1856,7 @@ class FastSeal( object ):
         self.widgets.active_gcodes_label.set_label( " ".join( self.active_gcodes ) )
 
     def _update_active_mcodes( self ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _update_active_mcodes", self)
         # M codes
         active_codes = []
         temp = []
@@ -1884,23 +1899,6 @@ class FastSeal( object ):
         self.widgets.lbl_active_feed.set_label( feed_str )
         self.widgets.lbl_feed_act.set_text( real_feed_str )
 
-#     def _update_coolant( self ):
-#         if self.stat.flood:
-#             if not self.widgets.tbtn_flood.get_active():
-#                 self.widgets.tbtn_flood.set_active( True )
-#                 self.widgets.tbtn_flood.set_image( self.widgets.img_coolant_on )
-#         else:
-#             if self.widgets.tbtn_flood.get_active():
-#                 self.widgets.tbtn_flood.set_active( False )
-#                 self.widgets.tbtn_flood.set_image( self.widgets.img_coolant_off )
-#         if self.stat.mist:
-#             if not self.widgets.tbtn_mist.get_active():
-#                 self.widgets.tbtn_mist.set_active( True )
-#                 self.widgets.tbtn_mist.set_image( self.widgets.img_mist_on )
-#         else:
-#             if self.widgets.tbtn_mist.get_active():
-#                 self.widgets.tbtn_mist.set_active( False )
-#                 self.widgets.tbtn_mist.set_image( self.widgets.img_mist_off )
 
     def _update_halui_pin( self ):
         if self.spindle_override != self.stat.spindle[0]['override']:
@@ -1919,14 +1917,9 @@ class FastSeal( object ):
             self.widgets.adj_max_vel.set_value( self.stat.max_velocity * 60 )
             self.max_velocity = self.stat.max_velocity
             self.initialized = True
-#        if self.rapidrate != self.stat.rapidrate:
-#            self.initialized = False
-#            self.widgets.adj_max_vel.set_value(self.stat.max_velocity * 60 * self.stat.rapidrate)
-#            print( "Rapid Rate = ", self.stat.rapidrate )
-#            self.rapidrate = self.stat.rapidrate
-#            self.initialized = True
 
     def _update_slider( self, widgetlist ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _update_slider", widgetlist)
         # update scales and sliders
         for widget in widgetlist:
             value = self.widgets[widget].get_value()
@@ -1940,6 +1933,7 @@ class FastSeal( object ):
         self.on_adj_max_vel_value_changed( self.widgets.adj_max_vel )
 
     def _change_dro_color( self, property, color ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _change_dro_color", property, color)
         for axis in self.axis_list:
             self.widgets["Combi_DRO_%s" % axis].set_property( property, color )
         if self.lathe_mode:
@@ -1953,6 +1947,7 @@ class FastSeal( object ):
                 self.diameter_mode = True
 
     def _update_toolinfo( self, tool ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _update_toolinfo", tool)
         toolinfo = self.widgets.tooledit1.get_toolinfo( tool )
         if toolinfo:
             # Doku
@@ -1999,6 +1994,7 @@ class FastSeal( object ):
 # =========================================================
 
     def on_adj_dro_digits_value_changed( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_adj_dro_digits_value_changed", widget, data)
         if not self.initialized:
             return
         self.dro_digits = int( widget.get_value() )
@@ -2017,6 +2013,7 @@ class FastSeal( object ):
             self.widgets["Combi_DRO_%s" % axis].set_property( "imperial_text_template", format_string_inch )
 
     def on_chk_toggle_readout_toggled( self, widget, data = None):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_chk_toggle_readout_toggled", widget, data)
         state = widget.get_active()
         self.prefs.putpref( "toggle_readout", state, bool )
         self.toggle_readout = state
@@ -2026,6 +2023,7 @@ class FastSeal( object ):
             self.widgets["Combi_DRO_%s" % axis].set_property( "toggle_readout", state )
 
     def on_Combi_DRO_clicked( self, widget, joint_number, order ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_Combi_DRO_clicked", widget, joint_number, order)
         if not self.toggle_readout:
             return
         for axis in self.axis_list:
@@ -2035,6 +2033,7 @@ class FastSeal( object ):
         self._offset_changed( None, None )
 
     def _offset_changed( self, pin, tooloffset ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _offset_changed", pin, tooloffset)
         if self.widgets.Combi_DRO_x.machine_units == _MM:
             self.widgets.lbl_tool_offset_z.set_text( "%.3f" % self.halcomp["tooloffset-z"] )
             self.widgets.lbl_tool_offset_x.set_text( "%.3f" % self.halcomp["tooloffset-x"] )
@@ -2043,52 +2042,60 @@ class FastSeal( object ):
             self.widgets.lbl_tool_offset_x.set_text( "%.4f" % self.halcomp["tooloffset-x"] )
 
     def on_offsetpage1_selection_changed( self, widget, system, name ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_offsetpage1_selection_changed", widget, system, name)
         if system not in self.system_list[1:] or self.widgets.tbtn_edit_offsets.get_active():
             self.widgets.btn_set_selected.set_sensitive( False )
         else:
             self.widgets.btn_set_selected.set_sensitive( True )
 
-
     def on_adj_x_pos_popup_value_changed( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_adj_x_pos_popup_value_changed", widget, data)
         if not self.initialized:
             return
         self.prefs.putpref( "x_pos_popup", widget.get_value(), float )
         self.init_notification()
 
     def on_adj_y_pos_popup_value_changed( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_adj_y_pos_popup_value_changed", widget, data)
         if not self.initialized:
             return
         self.prefs.putpref( "y_pos_popup", widget.get_value(), float )
         self.init_notification()
 
     def on_adj_width_popup_value_changed( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_adj_width_popup_value_changed", widget, data)
         if not self.initialized:
             return
         self.prefs.putpref( "width_popup", widget.get_value(), float )
         self.init_notification()
 
     def on_adj_max_messages_value_changed( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_adj_max_messages_value_changed", widget, data)
         if not self.initialized:
             return
         self.prefs.putpref( "max_messages", widget.get_value(), float )
         self.init_notification()
 
     def on_chk_use_frames_toggled( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_chk_use_frames_toggled", widget, data)
         if not self.initialized:
             return
         self.prefs.putpref( "use_frames", widget.get_active(), bool )
         self.init_notification()
 
     def on_fontbutton_popup_font_set( self, font ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_fontbutton_popup_font_set", font)
         self.prefs.putpref( "message_font", self.widgets.fontbutton_popup.get_font_name(), str )
         self.init_notification()
 
     def on_btn_launch_test_message_pressed( self, widget = None, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_launch_test_message_pressed", widget, data)
         index = len( self.notification.messages )
         text = _( "Halo, welcome to the test message %d" ) % index
         self._show_error( ( 13, text ) )
 
     def on_chk_turtle_jog_toggled( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_chk_turtle_jog_toggled", widget, data)
         state = widget.get_active()
         self.prefs.putpref( "hide_turtle_jog_button", state )
         self.widgets.tbl_turtle_jog_factor.set_sensitive( not state )
@@ -2102,6 +2109,7 @@ class FastSeal( object ):
             self.turtle_jog = self.jog_rate / self.turtle_jog_factor
 
     def on_adj_turtle_jog_factor_value_changed( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_chk_turtle_jog_factor_value_changed", widget, data)
         if not self.initialized:
             return
         self.turtle_jog_factor = int( widget.get_value() )
@@ -2112,6 +2120,7 @@ class FastSeal( object ):
                                                self.jog_rate_max / self.turtle_jog_factor, 1, 0, 0 )
 
     def on_tbtn_turtle_jog_toggled( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_tbtn_turtle_jog_toggled", widget, data)
         if widget.get_active():
             self.rabbit_jog = self.widgets.adj_jog_vel.get_value()
             widget.set_image( self.widgets.img_turtle_jog )
@@ -2131,9 +2140,11 @@ class FastSeal( object ):
             self.widgets.spc_jog_vel.set_property("increment", increment)
 
     def _on_turtle_jog_enable( self, pin ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _on_turtle_jog_enabled", pin)
         self.widgets.tbtn_turtle_jog.set_active( bool( pin.get() ) )
 
     def on_btn_jog_pressed( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_jog_presssed", widget, data)
 
         # only in manual mode we will allow jogging the axis at this development state
         if not self.stat.enabled or self.stat.task_mode != linuxcnc.MODE_MANUAL:
@@ -2179,6 +2190,7 @@ class FastSeal( object ):
             self.command.jog(linuxcnc.JOG_CONTINUOUS, JOGMODE, axisnumber, direction * velocity)
 
     def on_btn_jog_released( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_jog_released", widget, data)
 
         # only in manual mode we will allow jogging the axis at this development state
         if not self.stat.enabled or self.stat.task_mode != linuxcnc.MODE_MANUAL:
@@ -2210,6 +2222,7 @@ class FastSeal( object ):
 
     # use the current loaded file to be loaded on start up
     def on_btn_use_current_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_use_current_clicked", widget, data)
         if self.stat.file:
             self.widgets.file_to_load_chooser.set_filename( self.stat.file )
             self.prefs.putpref( "open_file", self.stat.file, str )
@@ -2217,15 +2230,18 @@ class FastSeal( object ):
     # Clear the status to load a file on start up, so there will not be loaded a programm
     # on the next start of the GUI
     def on_btn_none_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_none_clicked", widget, data)
         self.widgets.file_to_load_chooser.set_filename( " " )
         self.prefs.putpref( "open_file", " ", str )
 
     def on_ntb_main_switch_page( self, widget, page, page_num, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_ntb_main_switch_page", widget, page, page_num, data)
         if self.widgets.tbtn_setup.get_active():
             if page_num != 1L:  # setup page is active,
                 self.widgets.tbtn_setup.set_active( False )
 
     def on_tbtn_setup_toggled( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_tbtn_setup_toggled", widget, data)
         # first we set to manual mode, as we do not allow changing settings in other modes
         # otherwise external halui commands could start a program while we are in settings
         self.command.mode( linuxcnc.MODE_MANUAL )
@@ -2286,6 +2302,7 @@ class FastSeal( object ):
 
     # Show or hide the user tabs
     def on_tbtn_user_tabs_toggled( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_tbtn_user_tabs_toggled", widget, data)
         if widget.get_active():
             self.widgets.ntb_main.set_current_page( 2 )
             self.widgets.tbtn_fullsize_preview.set_sensitive( False )
@@ -2296,9 +2313,11 @@ class FastSeal( object ):
 # =========================================================
 # The homing functions
     def on_btn_homing_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_homing_clicked", widget, data)
         self.widgets.ntb_button.set_current_page( 3 )
 
     def on_btn_home_all_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_home_all_clicked", widget, data)
         if self.stat.motion_mode != 1:
             self.set_motion_mode(0)
 
@@ -2306,6 +2325,7 @@ class FastSeal( object ):
         self.command.home( -1 )
 
     def on_btn_unhome_all_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_unhome_all_clicked", widget, data)
         self.set_motion_mode(0)
         self.all_homed = False
         # -1 for all
@@ -2316,19 +2336,16 @@ class FastSeal( object ):
             self.set_motion_mode(1)
 
     def on_btn_home_selected_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_home_selected_clicked", widget, data)
         if widget == self.widgets.btn_home_x:
             axis = 0
-#        elif widget == self.widgets.btn_home_y:
-#            axis = 1
         elif widget == self.widgets.btn_home_z:
-#changed this to get the correct joint homed
             axis = 1
-#        elif widget == self.widgets.btn_home_4:
-#            axis = "xyzabcuvw".index( self.axisletter_four )
         self.set_motion_mode(0)
         self.command.home( axis )
 
     def _check_limits( self ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _check_limits", self)
         for axis in self.axis_list:
             axisnumber = "xyzabcuvw".index( axis )
             if self.stat.limit[axisnumber] != 0:
@@ -2338,6 +2355,7 @@ class FastSeal( object ):
         return False
 
     def on_chk_ignore_limits_toggled( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_chk_ignore_limits_toggled", widget, data)
         if self.widgets.chk_ignore_limits.get_active():
             if not self._check_limits():
                 self._show_error( ( 11, _( "ERROR : No limit switch is active, ignore limits will not be set." ) ) )
@@ -2345,6 +2363,7 @@ class FastSeal( object ):
             self.command.override_limits()
 
     def on_tbtn_fullsize_preview_toggled( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_tbtn_fullsize_preview_toggled", widget, data)
         if widget.get_active():
             self.widgets.vbx_jog.hide()
             self.widgets.gremlin.set_property( "metric_units", self.widgets.Combi_DRO_x.metric_units )
@@ -2359,21 +2378,27 @@ class FastSeal( object ):
 # =========================================================
 # this are hal-tools copied from gsreen function
     def on_btn_show_hal_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_show_hal_clicked", widget, data)
         p = os.popen( "tclsh %s/bin/halshow.tcl &" % TCLPATH )
 
     def on_btn_calibration_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_calibration_clicked", widget, data)
         p = os.popen( "tclsh %s/bin/emccalib.tcl -- -ini %s > /dev/null &" % ( TCLPATH, sys.argv[2] ), "w" )
 
     def on_btn_hal_meter_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_hal_meter_clicked", widget, data)
         p = os.popen( "halmeter &" )
 
     def on_btn_status_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_status_clicked", widget, data)
         p = os.popen( "linuxcnctop  > /dev/null &", "w" )
 
     def on_btn_hal_scope_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_hal_scope_clicked", widget, data)
         p = os.popen( "halscope  > /dev/null &", "w" )
 
     def on_btn_classicladder_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_classicladder_clicked", widget, data)
         if hal.component_exists( "classicladder_rt" ):
             p = os.popen( "classicladder  &", "w" )
         else:
@@ -2405,6 +2430,7 @@ class FastSeal( object ):
         self.widgets.lbl_spindle_act.set_text("S {0}".format(int(speed * self.spindle_override)))
 
     def on_rbt_forward_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_rbt_forward_clicked", widget, data)
         if widget.get_active():
             widget.set_image( self.widgets.img_forward_on )
             self._set_spindle( "forward" )
@@ -2412,6 +2438,7 @@ class FastSeal( object ):
             self.widgets.rbt_forward.set_image( self.widgets.img_forward )
 
     def on_rbt_reverse_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_rbt_reverse_clicked", widget, data)
         if widget.get_active():
             widget.set_image( self.widgets.img_reverse_on )
             self._set_spindle( "reverse" )
@@ -2419,6 +2446,7 @@ class FastSeal( object ):
             widget.set_image( self.widgets.img_reverse )
 
     def on_rbt_stop_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_rbt_stop_clicked", widget, data)
         if widget.get_active():
             widget.set_image( self.widgets.img_stop_on )
             self._set_spindle( "stop" )
@@ -2426,6 +2454,7 @@ class FastSeal( object ):
             self.widgets.rbt_stop.set_image( self.widgets.img_sstop )
 
     def _set_spindle(self, command):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _set_spindle", command)
         # if we are in estop state, we will have to leave here, otherwise
         # we get an error, that switching spindle off is not allowed with estop
         if self.stat.task_state == linuxcnc.STATE_ESTOP:
@@ -2471,6 +2500,7 @@ class FastSeal( object ):
             print(_("Something went wrong, we have an unknown spindle widget {0}").format(command))
 
     def _check_spindle_range( self ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _check_spindle_range", self)
         rpm = ( self.stat.settings[2] )
         if rpm == 0:
             rpm = abs( self.spindle_start_rpm )
@@ -2485,6 +2515,7 @@ class FastSeal( object ):
         return real_spindle_speed
 
     def on_adj_spindle_value_changed( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_adj_spindle_value_changed", widget, data)
         if not self.initialized:
             return
         # this is in a try except, because on initializing the window the values are still zero
@@ -2516,15 +2547,18 @@ class FastSeal( object ):
         self.widgets.lbl_spindle_act.set_text( "S %d" % real_spindle_speed )
 
     def on_adj_start_spindle_RPM_value_changed( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_adj_start_spindle_RPM_value_changed", widget, data)
         self.spindle_start_rpm = widget.get_value()
         self.prefs.putpref( "spindle_start_rpm", self.spindle_start_rpm, float )
 
     def on_adj_spindle_bar_min_value_changed( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_adj_spindle_bar_min_value_changed", widget, data)
         self.min_spindle_rev = widget.get_value()
         self.prefs.putpref( "spindle_bar_min", self.min_spindle_rev, float )
         self.widgets.spindle_feedback_bar.set_property( "min", self.min_spindle_rev )
 
     def on_adj_spindle_bar_max_value_changed( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_adj_spindle_bar_max_value_changed", widget, data)
         self.max_spindle_rev = widget.get_value()
         self.prefs.putpref( "spindle_bar_max", self.max_spindle_rev, float )
         self.widgets.spindle_feedback_bar.set_property( "max", self.max_spindle_rev )
@@ -2532,12 +2566,14 @@ class FastSeal( object ):
 # =========================================================
 # feed stuff
     def on_adj_feed_value_changed( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_adj_feed_value_changed", widget, data)
         if not self.initialized:
             return
         self.command.feedrate( widget.get_value() / 100 )
         self.widgets.adj_max_vel.set_value( float( self.widgets.adj_max_vel.upper * widget.get_value() / 100 ) )
 
     def on_adj_max_vel_value_changed( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_adj_max_vel_value_changed", widget, data)
         if not self.initialized:
             return
         value = widget.get_value() / 60
@@ -2545,6 +2581,7 @@ class FastSeal( object ):
 
     # this are the MDI thinks we need
     def on_btn_delete_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_delete_clicked", widget, data)
         message = _( "Do you really want to delete the MDI history?\n" )
         message += _( "this will not delete the MDI History file, but will\n" )
         message += _( "delete the listbox entries for this session" )
@@ -2555,6 +2592,7 @@ class FastSeal( object ):
     # Three back buttons to be able to leave notebook pages
     # All use the same callback offset
     def on_btn_back_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_back_clicked", widget, data)
         if self.widgets.ntb_button.get_current_page() == 6:  # edit mode, go back to auto_buttons
             self.widgets.ntb_button.set_current_page( 2 )            
             if self.widgets.tbtn_fullsize_preview1.get_active():
@@ -2568,12 +2606,14 @@ class FastSeal( object ):
 
     # The offset settings, set to zero
     def on_btn_touch_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_touch_clicked", widget, data)
         self.widgets.ntb_button.set_current_page( 4 )
         self._show_offset_tab( True )
         if self.widgets.rbtn_show_preview.get_active():
             self.widgets.ntb_preview.set_current_page( 0 )
 
     def on_tbtn_edit_offsets_toggled( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_tntn_editr_offsets_toggled", widget, data)
         state = widget.get_active()
         self.widgets.offsetpage1.edit_button.set_active( state )
         widgetlist = ["btn_zero_x", "btn_zero_y", "btn_zero_z", "btn_set_value_x", "btn_set_value_y",
@@ -2602,6 +2642,7 @@ class FastSeal( object ):
             self.command.wait_complete()
 
     def on_btn_zero_g92_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_zero_g92_clicked", widget, data)
         self.command.mode( linuxcnc.MODE_MDI )
         self.command.wait_complete()
         self.command.mdi( "G92.1" )
@@ -2612,6 +2653,7 @@ class FastSeal( object ):
 # TODO: what to do when there are more axis?
 # all over one handler with "G10 L20 P0 %s%f"%(axis,value)
     def on_btn_zero_x_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_zero_x_clicked", widget, data)
         self.command.mode( linuxcnc.MODE_MDI )
         self.command.wait_complete()
         self.command.mdi( "G10 L20 P0 X0" )
@@ -2620,6 +2662,7 @@ class FastSeal( object ):
         self.command.wait_complete()
 
     def on_btn_zero_y_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_zero_y_clicked", widget, data)
         self.command.mode( linuxcnc.MODE_MDI )
         self.command.wait_complete()
         self.command.mdi( "G10 L20 P0 Y0" )
@@ -2628,6 +2671,7 @@ class FastSeal( object ):
         self.command.wait_complete()
 
     def on_btn_zero_z_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_zero_z_clicked", widget, data)
         self.command.mode( linuxcnc.MODE_MDI )
         self.command.wait_complete()
         self.command.mdi( "G10 L20 P0 Z0" )
@@ -2636,6 +2680,7 @@ class FastSeal( object ):
         self.command.wait_complete()
 
     def on_btn_set_value_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_set_value_clicked", widget, data)
         if widget == self.widgets.btn_set_value_x:
             axis = "x"
         elif widget == self.widgets.btn_set_value_y:
@@ -2677,6 +2722,7 @@ class FastSeal( object ):
 # TODO: End
 
     def on_btn_set_selected_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_set_selöected_clicked", widget, data)
         system, name = self.widgets.offsetpage1.get_selected()
         if not system:
             message = _( "you did not selected a system to be changed to, so nothing will be changed" )
@@ -2692,18 +2738,22 @@ class FastSeal( object ):
             self.command.wait_complete()
 
     def on_spbtn_probe_height_value_changed( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_spbtn_probe_height_value_changed", widget, data)
         self.halcomp["probeheight"] = widget.get_value()
         self.prefs.putpref( "probeheight", widget.get_value(), float )
 
     def on_spbtn_search_vel_value_changed( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_spbtn_search_vel_value_changed", widget, data)
         self.halcomp["searchvel"] = widget.get_value()
         self.prefs.putpref( "searchvel", widget.get_value(), float )
 
     def on_spbtn_probe_vel_value_changed( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_spbtn_probe_vel_value_changed", widget, data)
         self.halcomp["probevel"] = widget.get_value()
         self.prefs.putpref( "probevel", widget.get_value(), float )
 
     def on_chk_use_tool_measurement_toggled( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_chk_use_tool_measurement_toggled", widget, data)
         if widget.get_active():
             self.widgets.frm_probe_pos.set_sensitive( True )
             self.widgets.frm_probe_vel.set_sensitive( True )
@@ -2721,6 +2771,7 @@ class FastSeal( object ):
         self.prefs.putpref( "use_toolmeasurement", widget.get_active(), bool )
 
     def on_btn_block_height_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_block_height_clicked", widget, data)
         probeheight = self.widgets.spbtn_probe_height.get_value()
         blockheight = dialogs.entry_dialog( self, data = None, header = _( "Enter the block height" ),
                                            label = _( "Block height measured from base table" ), integer = False )
@@ -2749,6 +2800,7 @@ class FastSeal( object ):
 
     # choose a theme to aply
     def on_theme_choice_changed( self, widget ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_theme_choice_changed", widget)
         theme = widget.get_active_text()
         if theme == None:
             return
@@ -2759,6 +2811,7 @@ class FastSeal( object ):
         settings.set_string_property( "gtk-theme-name", theme, "" )
 
     def on_rbt_unlock_toggled( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_rbt_unlock_toggled", widget, data)
         if widget.get_active():
             if widget == self.widgets.rbt_use_unlock:
                 self.prefs.putpref( "unlock_way", "use", str )
@@ -2768,6 +2821,7 @@ class FastSeal( object ):
                 self.prefs.putpref( "unlock_way", "hal", str )
 
     def on_rbtn_run_from_line_toggled( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_rbtn_run_from_line_toggled", widget, data)
         if widget.get_active():
             if widget == self.widgets.rbtn_no_run_from_line:
                 self.prefs.putpref( "run_from_line", "no_run", str )
@@ -2777,28 +2831,35 @@ class FastSeal( object ):
                 self.widgets.btn_from_line.set_sensitive( True )
 
     def on_chk_use_kb_shortcuts_toggled( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_chk_use_kb_shortcuts_toggled", widget, data)
         self.prefs.putpref( "use_keyboard_shortcuts", widget.get_active(), bool )
 
     def on_rbtn_show_preview_toggled( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_rbtn_show_preview_toggled", widget, data)
         self.prefs.putpref( "show_preview_on_offset", widget.get_active(), bool )
 
     def on_adj_scale_max_vel_value_changed( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_adj_scale_max_vel_value_changed", widget, data)
         self.prefs.putpref( "scale_max_vel", widget.get_value(), float )
         self.scale_max_vel = widget.get_value()
 
     def on_adj_scale_jog_vel_value_changed( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_adj_scale_jog_vel_value_changed", widget, data)
         self.prefs.putpref( "scale_jog_vel", widget.get_value(), float )
         self.scale_jog_vel = widget.get_value()
 
     def on_adj_scale_feed_override_value_changed( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_adj_scale_feed_override_value_changed", widget, data)
         self.prefs.putpref( "scale_feed_override", widget.get_value(), float )
         self.scale_feed_override = widget.get_value()
 
     def on_adj_scale_spindle_override_value_changed( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_adj_scale_spindle_override_value_changed", widget, data)
         self.prefs.putpref( "scale_spindle_override", widget.get_value(), float )
         self.scale_spindle_override = widget.get_value()
 
     def on_rbtn_fullscreen_toggled( self, widget ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_rbtn_fullscreen_toggled", widget)
         if widget.get_active():
             self.widgets.window1.fullscreen()
             self.prefs.putpref( "screen1", "fullscreen", str )
@@ -2806,6 +2867,7 @@ class FastSeal( object ):
             self.widgets.window1.unfullscreen()
 
     def on_rbtn_maximized_toggled( self, widget ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_rbtn_maximized_toggled", widget)
         if widget.get_active():
             self.widgets.window1.maximize()
             self.prefs.putpref( "screen1", "maximized", str )
@@ -2813,6 +2875,7 @@ class FastSeal( object ):
             self.widgets.window1.unmaximize()
 
     def on_rbtn_window_toggled( self, widget ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_rbtn_window_toggled", widget)
         self.widgets.spbtn_x_pos.set_sensitive( widget.get_active() )
         self.widgets.spbtn_y_pos.set_sensitive( widget.get_active() )
         self.widgets.spbtn_width.set_sensitive( widget.get_active() )
@@ -2825,6 +2888,7 @@ class FastSeal( object ):
             self.prefs.putpref( "screen1", "window", str )
 
     def on_adj_x_pos_value_changed( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_adj_x_pos_value_changed", widget, data)
         if not self.initialized:
             return
         value = int( widget.get_value() )
@@ -2833,6 +2897,7 @@ class FastSeal( object ):
         self.widgets.window1.move( value, self.ypos )
 
     def on_adj_y_pos_value_changed( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_adj_y_pos_value_changed", widget, data)
         if not self.initialized:
             return
         value = int( widget.get_value() )
@@ -2841,6 +2906,7 @@ class FastSeal( object ):
         self.widgets.window1.move( self.xpos, value )
 
     def on_adj_width_value_changed( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_adj_width_value_changed", widget, data)
         if not self.initialized:
             return
         value = int( widget.get_value() )
@@ -2849,6 +2915,7 @@ class FastSeal( object ):
         self.widgets.window1.resize( value, self.height )
 
     def on_adj_height_value_changed( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_adj_height_value_changed", widget, data)
         if not self.initialized:
             return
         value = int( widget.get_value() )
@@ -2857,6 +2924,7 @@ class FastSeal( object ):
         self.widgets.window1.resize( self.width, value )
 
     def on_adj_dro_size_value_changed( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_adj_dro_size_value_changed", widget, data)
         if not self.initialized:
             return
         value = int( widget.get_value() )
@@ -2864,9 +2932,9 @@ class FastSeal( object ):
         self.dro_size = value
         for axis in self.axis_list:
             self.widgets["Combi_DRO_%s" % axis].set_property( "font_size", self.dro_size )
-        #self._init_axis_four()
 
     def on_chk_hide_cursor_toggled( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_chk_hide_cursor", widget, data)
         self.prefs.putpref( "hide_cursor", widget.get_active(), bool )
         self.hide_cursor = widget.get_active()
         if widget.get_active():
@@ -2880,51 +2948,57 @@ class FastSeal( object ):
         self.unhomed_color = self.prefs.getpref( "unhomed_color", "red", str )
 
     def on_rel_colorbutton_color_set( self, widget ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_rel_colorbutton_color_set", widget)
         color = widget.get_color()
         self.prefs.putpref( 'rel_color', color, str )
         self._change_dro_color( "rel_color", color )
         self.rel_color = str( color )
 
     def on_abs_colorbutton_color_set( self, widget ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_abs_colorbutton_color_set", widget)
         color = widget.get_color()
         self.prefs.putpref( 'abs_color', widget.get_color(), str )
         self._change_dro_color( "abs_color", color )
         self.abs_color = str( color )
 
     def on_dtg_colorbutton_color_set( self, widget ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_dtg_colorbutton_color_set", widget)
         color = widget.get_color()
         self.prefs.putpref( 'dtg_color', widget.get_color(), str )
         self._change_dro_color( "dtg_color", color )
         self.dtg_color = str( color )
 
     def on_homed_colorbtn_color_set( self, widget ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_homed_colorbtn_color_set", widget)
         color = widget.get_color()
         self.prefs.putpref( 'homed_color', widget.get_color(), str )
         self._change_dro_color( "homed_color", color )
         self.homed_color = str( color )
 
     def on_unhomed_colorbtn_color_set( self, widget ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_unhomed_colorbtn_color_set", widget)
         color = widget.get_color()
         self.prefs.putpref( 'unhomed_color', widget.get_color(), str )
         self._change_dro_color( "unhomed_color", color )
         self.unhomed_color = str( color )
 
     def on_file_to_load_chooser_file_set( self, widget ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_file_to_load_chooser_file_set", widget)
         self.prefs.putpref( "open_file", widget.get_filename(), str )
 
     def on_jump_to_dir_chooser_file_set( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_jump_to_dir_file_chooser_file_set", widget, data)
         path = widget.get_filename()
         self.prefs.putpref( "jump_to_dir", path, str )
         self.widgets.IconFileSelection1.set_property( "jump_to_dir", path )
 
     def on_grid_size_value_changed( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_grid_size_value_changed", widget, data)
         self.widgets.gremlin.set_property( 'grid_size', widget.get_value() )
         self.prefs.putpref( 'grid_size', widget.get_value(), float )
 
-    def on_tbtn_log_actions_toggled( self, widget, data = None ):
-        self.prefs.putpref( "log_actions", widget.get_active(), bool )
-
     def on_chk_show_dro_toggled( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_chk_show_dro_toggled", widget, data)
         self.widgets.gremlin.set_property( "metric_units", self.widgets.Combi_DRO_x.metric_units )
         self.widgets.gremlin.set_property( "enable_dro", widget.get_active() )
         self.prefs.putpref( "enable_dro", widget.get_active(), bool )
@@ -2932,14 +3006,17 @@ class FastSeal( object ):
         self.widgets.chk_show_dtg.set_sensitive( widget.get_active() )
 
     def on_chk_show_dtg_toggled( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_chk_show_dtg_toggled", widget, data)
         self.widgets.gremlin.set_property( "show_dtg", widget.get_active() )
         self.prefs.putpref( "show_dtg", widget.get_active(), bool )
 
     def on_chk_show_offsets_toggled( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_chk_show_offsets_toggled", widget, data)
         self.widgets.gremlin.show_offsets = widget.get_active()
         self.prefs.putpref( "show_offsets", widget.get_active(), bool )
 
     def on_cmb_mouse_button_mode_changed( self, widget ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_cmb_mouse_button_mode", widget)
         index = widget.get_active()
         self.widgets.gremlin.set_property( "mouse_btn_mode", index )
         self.prefs.putpref( "mouse_btn_mode", index, int )
@@ -2947,6 +3024,7 @@ class FastSeal( object ):
 # =========================================================
 # tool stuff
     def on_btn_tool_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_tool_clicked", widget, data)
         if self.widgets.tbtn_fullsize_preview.get_active():
             self.widgets.tbtn_fullsize_preview.set_active( False )
         self.widgets.ntb_button.set_current_page( 7 )
@@ -2954,6 +3032,7 @@ class FastSeal( object ):
 
     # Here we create a manual tool change dialog
     def on_tool_change( self, widget ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_tool_change", widget)
         change = self.halcomp['toolchange-change']
         toolnumber = self.halcomp['toolchange-number']
         if change:
@@ -2979,21 +3058,26 @@ class FastSeal( object ):
             self.halcomp['toolchange-changed'] = False
 
     def on_btn_delete_tool_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_delete_tool_clicked", widget, data)
         self.tooledit_btn_delete_tool.emit( "clicked" )
 
     def on_btn_add_tool_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_add_tool_clicked", widget, data)
         self.tooledit_btn_add_tool.emit( "clicked" )
 
     def on_btn_reload_tooltable_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_reload_tooltable_clicked", widget, data)
         self.tooledit_btn_reload_tool.emit( "clicked" )
 
     def on_btn_apply_tool_changes_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_apply_changes_clicked", widget, data)
         self.tooledit_btn_apply_tool.emit( "clicked" )
         tool = self.widgets.tooledit1.get_selected_tool()
         self._update_toolinfo(tool)
         self.widgets.hal_action_reload.emit( "activate" )
 
     def on_btn_tool_touchoff_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_tool_touchoff_clicked", widget, data)
         if not self.widgets.tooledit1.get_selected_tool():
             message = _( "No or more than one tool selected in tool table" )
             message += _( "Please select only one tool in the table" )
@@ -3053,6 +3137,7 @@ class FastSeal( object ):
 
     # select a tool entering a number
     def on_btn_select_tool_by_no_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_select_tool_by_no_clicked", widget, data)
         value = dialogs.entry_dialog( self, data = None, header = _( "Enter the tool number as integer " ),
                                      label = _( "Select the tool to change" ), integer = True )
         if value == "ERROR":
@@ -3076,6 +3161,7 @@ class FastSeal( object ):
 
     # set tool with M61 Q? or with T? M6
     def on_btn_selected_tool_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_selected_tool_clicked", widget, data)
         tool = self.widgets.tooledit1.get_selected_tool()
         if tool == None:
             message = _( "you selected no or more than one tool, the tool selection must be unique" )
@@ -3101,34 +3187,43 @@ class FastSeal( object ):
             dialogs.warning_dialog( self, _( "Important Warning!" ), message )
 
     def on_btn_zoom_in_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_zoom_in_clicked", widget, data)
         self.widgets.gremlin.zoom_in()
 
     def on_btn_zoom_out_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_zoom_out_clicked", widget, data)
         self.widgets.gremlin.zoom_out()
 
     def on_btn_delete_view_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_delete_view_clicked", widget, data)
         self.widgets.gremlin.clear_live_plotter()
 
     def on_tbtn_view_dimension_toggled( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_view_dimensions_toggled", widget, data)
         self.widgets.gremlin.set_property( "show_extents_option", widget.get_active() )
         self.prefs.putpref( "view_dimension", self.widgets.tbtn_view_dimension.get_active(), bool )
 
     def on_tbtn_view_tool_path_toggled( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_view_tool_path_toggled", widget, data)
         self.widgets.gremlin.set_property( "show_live_plot", widget.get_active() )
         self.prefs.putpref( "view_tool_path", self.widgets.tbtn_view_tool_path.get_active(), bool )
 
     def on_gremlin_line_clicked( self, widget, line ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_gremlin_line_clicked", widget, line)
         self.widgets.gcode_view.set_line_number( line )
 
     def _on_clear_preview_changed(self, pin):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _on_clear_preview_changed", pin)
         if pin.get():
             self.widgets.gremlin.clear_live_plotter()
 
     def _on_reload_preview_changed(self, pin):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _on_reload_preview_changed", pin)
         if pin.get():
             self.widgets.hal_action_reload.emit( "activate" )
 
     def on_btn_load_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_load_clicked", widget, data)
         self.widgets.ntb_button.set_current_page( 8 )
         self.widgets.ntb_preview.set_current_page( 3 )
         self._show_iconview_tab( True )
@@ -3137,24 +3232,31 @@ class FastSeal( object ):
         self.gcodeerror = ""
 
     def on_btn_sel_next_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_sel_next_clicked", widget, data)
         self.widgets.IconFileSelection1.btn_sel_next.emit( "clicked" )
 
     def on_btn_sel_prev_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_sel_prev_clicked", widget, data)
         self.widgets.IconFileSelection1.btn_sel_prev.emit( "clicked" )
 
     def on_btn_home_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_home_clicked", widget, data)
         self.widgets.IconFileSelection1.btn_home.emit( "clicked" )
 
     def on_btn_jump_to_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_jump_to_clicked", widget, data)
         self.widgets.IconFileSelection1.btn_jump_to.emit( "clicked" )
 
     def on_btn_dir_up_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_dir_up_clicked", widget, data)
         self.widgets.IconFileSelection1.btn_dir_up.emit( "clicked" )
 
     def on_btn_select_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_select_clicked", widget, data)
         self.widgets.IconFileSelection1.btn_select.emit( "clicked" )
 
     def on_IconFileSelection1_selected( self, widget, path = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_IconFileSelection1_selected", widget, data)
         if path:
             self.widgets.hal_action_open.load_file( path )
             self.widgets.ntb_preview.set_current_page( 0 )
@@ -3163,15 +3265,18 @@ class FastSeal( object ):
             self._show_iconview_tab( False )
 
     def on_IconFileSelection1_sensitive( self, widget, buttonname, state ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_IconFileSelection1_sensitive", widget, buttonname, state)
         self.widgets[buttonname].set_sensitive(state)
 
     def on_IconFileSelection1_exit( self, widget ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_IconFileSelection1_exit", widget)
         self.widgets.ntb_preview.set_current_page( 0 )
         self.widgets.tbtn_fullsize_preview.set_active( False )
         self._show_iconview_tab( False )
 
     # edit a program or make a new one
     def on_btn_edit_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_edit_clicked", widget, data)
         self.widgets.ntb_button.set_current_page( 6 )
         self.widgets.ntb_preview.hide()
         self.widgets.hbx_info.hide()
@@ -3185,22 +3290,26 @@ class FastSeal( object ):
     # Search and replace handling in edit mode
     # undo changes while in edit mode
     def on_btn_undo_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_undo_clicked", widget, data)
         self.widgets.gcode_edit_view.undo()
 
     # search backward while in edit mode
     def on_btn_search_back_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_search_back_clicked", widget, data)
         self.widgets.gcode_edit_view.text_search( direction = False,
                                             mixed_case = self.widgets.chk_ignore_case.get_active(),
                                             text = self.widgets.search_entry.get_text() )
 
     # search forward while in edit mode
     def on_btn_search_forward_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_search_forward_clicked", widget, data)
         self.widgets.gcode_edit_view.text_search( direction = True,
                                             mixed_case = self.widgets.chk_ignore_case.get_active(),
                                             text = self.widgets.search_entry.get_text() )
 
     # replace text in edit mode
     def on_btn_replace_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_replace_clicked", widget, data)
         self.widgets.gcode_edit_view.replace_text_search( direction = True,
                                                     mixed_case = self.widgets.chk_ignore_case.get_active(),
                                                     text = self.widgets.search_entry.get_text(),
@@ -3209,10 +3318,12 @@ class FastSeal( object ):
 
     # redo changes while in edit mode
     def on_btn_redo_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_redo_clicked", widget, data)
         self.widgets.gode_edit_view.redo()
 
     # if we leave the edit mode, we will have to show all widgets again
     def on_ntb_button_switch_page( self, *args ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_ntb_button_switch_page", args)
         if self.widgets.ntb_preview.get_current_page() == 0:  # preview tab is active,
             # check if offset tab is visible, if so we have to hide it
             page = self.widgets.ntb_preview.get_nth_page( 1 )
@@ -3236,6 +3347,7 @@ class FastSeal( object ):
 
     # make a new file
     def on_btn_new_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_new_clicked", widget, data)
         tempfilename = os.path.join( _TEMPDIR, "temp.ngc" )
         content = self.get_ini_info.get_RS274_start_code()
         if content == None:
@@ -3253,46 +3365,43 @@ class FastSeal( object ):
         self.widgets.btn_save.set_sensitive( False )
 
     def on_tbtn_optional_blocks_toggled( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_tbtn_optional_blocks_toggled", widget, data)
         self.command.set_block_delete( widget.get_active() )
         self.prefs.putpref( "blockdel", widget.get_active(), bool )
         self.widgets.hal_action_reload.emit( "activate" )
 
 
     def on_tbtn_optional_stops_toggled( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_tbtn_optional_stops_toggled", widget, data)
         self.command.set_optional_stop( widget.get_active() )
         self.prefs.putpref( "opstop", widget.get_active(), bool )
 
     # this can not be done with the status widget,
     # because it will not emit a RESUME signal
     def on_tbtn_pause_toggled( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_tbtn_pause_toggled", widget, data)
         widgetlist = ["rbt_forward", "rbt_reverse", "rbt_stop"]
         self._sensitize_widgets( widgetlist, widget.get_active() )
 
     def on_btn_stop_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_stop_clicked", widget, data)
         self.start_line = 0
         self.widgets.gcode_view.set_line_number( 0 )
         self.widgets.tbtn_pause.set_active( False )
 
     def on_btn_run_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_run_clicked", widget, data)
         self.command.auto( linuxcnc.AUTO_RUN, self.start_line )
 
     def on_btn_from_line_clicked( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_from_line_clicked", widget, data)
         dialogs.restart_dialog( self )
-
-    def on_change_sound( self, widget, sound = None ):
-        file = widget.get_filename()
-        if file:
-            if widget == self.widgets.audio_error_chooser:
-                self.error_sound = file
-                self.prefs.putpref( "audio_error", file, str )
-            else:
-                self.alert_sound = file
-                self.prefs.putpref( "audio_alert", file, str )
 
 # =========================================================
 # Hal Pin Handling Start
 
     def _on_counts_changed( self, pin, widget ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _on_counts_changed", pin, widget)
         if not self.initialized:
             return
         difference = 0
@@ -3329,6 +3438,7 @@ class FastSeal( object ):
             self.widgets[widget].set_value( val )
 
     def _check_counts( self, counts ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _check_counts", counts)
         # as we do not know how the user did connect the jog wheels, we have to check all
         # possibilitys. Does he use only one jog wheel and a selection switch or do he use
         # a mpg for each slider or one for speeds and one for override, or ??
@@ -3358,6 +3468,7 @@ class FastSeal( object ):
             self.jv_counts = self.mv_counts = counts
 
     def _on_analog_value_changed( self, pin, widget ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _on_analog_value_changed", pin, widget)
         if not self.initialized:
             return
         if widget == "adj_feed" and not self.halcomp["feed-override.analog-enable"]:
@@ -3379,11 +3490,13 @@ class FastSeal( object ):
         self.widgets[widget].set_value( value )
 
     def _on_unlock_settings_changed( self, pin ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _on_unlock_settings_changed", pin)
         if not self.widgets.rbt_hal_unlock.get_active():
             return
         self.widgets.tbtn_setup.set_sensitive( pin.get() )
 
     def _on_message_deleted( self, widget, messages ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _on_message_delete", widget, messages)
         number = []
         for message in messages:
             if message[2] == ALERT_ICON:
@@ -3392,6 +3505,7 @@ class FastSeal( object ):
             self.halcomp["error"] = False
 
     def _del_message_changed( self, pin ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _del_messages_changed", pin)
         if pin.get():
             if self.halcomp["error"] == True:
                 number = []
@@ -3406,6 +3520,7 @@ class FastSeal( object ):
                 self.notification.del_last()
 
     def _on_pin_incr_changed( self, pin, buttonnumber ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _on_pin_incr_changed", pin, buttonnumber)
         # print ("State = ", self.stat.state)
         if self.stat.state != 1:
             self.command.abort()
@@ -3417,6 +3532,7 @@ class FastSeal( object ):
         self.incr_rbt_list[int( buttonnumber )].set_active( True )
 
     def _on_pin_jog_changed( self, pin, axis, direction ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _on_pin_jog_changed", pin, axis, direction)
         if axis not in "xyz":
             axis = "4"
         if direction == 1:
@@ -3429,10 +3545,12 @@ class FastSeal( object ):
             self.on_btn_jog_released( widget )
 
     def _reset_overide( self, pin, type ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _reset_override", pin, type)
         if pin.get():
             self.widgets["btn_%s_100" % type].emit( "clicked" )
 
     def _on_vacuum_changed( self, pin ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _on_vacuum_changed", pin)
         if pin.get():
             self.widgets.img_vacuum_off.hide()
             self.widgets.img_vacuum_on.show()
@@ -3441,6 +3559,7 @@ class FastSeal( object ):
             self.widgets.img_vacuum_on.hide()
         
     def _on_chip_cutter_changed( self, pin ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _on_chipcutter_changed", pin)
         if pin.get():
             self.widgets.img_chipcutter_off.hide()
             self.widgets.img_chipcutter_on.show()
@@ -3449,6 +3568,7 @@ class FastSeal( object ):
             self.widgets.img_chipcutter_on.hide()
         
     def _on_coolant_changed( self, pin ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _on_coolant_changed", pin)
         if pin.get():
             self.widgets.img_coolant_off.hide()
             self.widgets.img_coolant_on.show()
@@ -3459,6 +3579,7 @@ class FastSeal( object ):
 # =========================================================
 # The actions of the buttons
     def _on_h_button_changed( self, pin ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _on_h_button_changed", pin)
         # we check if the button is pressed ore release,
         # otehrwise a signal will be emitted, wenn the button is released and
         # the signal drob down to zero
@@ -3503,6 +3624,7 @@ class FastSeal( object ):
                 print( "No function on this button" )
 
     def _on_v_button_changed( self, pin ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _on_v_button_changed", pin)
         if not pin.get():
             return
         btn = str( pin.name )
@@ -3535,6 +3657,7 @@ class FastSeal( object ):
 # we make pins for the hardware buttons witch can be placed around the
 # screen to activate the coresponding buttons on the GUI
     def _init_hal_pins( self ):
+        print(strftime( "%H:%M:%S" ) + "FastSeal  - _init_hal_pins", self)
         # generate the horizontal button pins
         for h_button in range( 0, 10 ):
             pin = self.halcomp.newpin( "h-button-%s" % h_button, hal.HAL_BIT, hal.HAL_IN )

@@ -1,8 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
-  <requires lib="gtk+" version="2.16"/>
   <!-- interface-requires gladevcp 0.0 -->
+  <requires lib="gtk+" version="2.16"/>
   <!-- interface-naming-policy project-wide -->
+  <object class="EMC_Action_Save" id="hal_action_save">
+    <property name="textview">gcode_edit_view</property>
+  </object>
+  <object class="EMC_Action_SaveAs" id="hal_action_saveas">
+    <property name="textview">gcode_edit_view</property>
+  </object>
+  <object class="EMC_Action_Step" id="hal_action_step"/>
+  <object class="EMC_Action_Stop" id="hal_action_stop"/>
   <object class="GtkAdjustment" id="adf_probe_vel">
     <property name="upper">100</property>
     <property name="value">10</property>
@@ -165,18 +173,10 @@
     <signal name="value-changed" handler="on_adj_y_pos_popup_value_changed" swapped="no"/>
   </object>
   <object class="GtkTextBuffer" id="alarm_buffer"/>
-  <object class="EMC_Action_Reload" id="hal_action_reload"/>
-  <object class="EMC_Action_Save" id="hal_action_save">
-    <property name="textview">gcode_edit_view</property>
-  </object>
-  <object class="EMC_Action_SaveAs" id="hal_action_saveas">
-    <property name="textview">gcode_edit_view</property>
-  </object>
-  <object class="EMC_Action_Step" id="hal_action_step"/>
-  <object class="EMC_Action_Stop" id="hal_action_stop"/>
   <object class="GtkFileFilter" id="ff_file_to_load"/>
   <object class="GtkFileFilter" id="filefilter1"/>
   <object class="EMC_Action_Open" id="hal_action_open"/>
+  <object class="EMC_Action_Reload" id="hal_action_reload"/>
   <object class="EMC_Stat" id="hal_status">
     <signal name="mode-manual" handler="on_hal_status_mode_manual" swapped="no"/>
     <signal name="all-homed" handler="on_hal_status_all_homed" swapped="no"/>
@@ -4187,62 +4187,16 @@ clicking on the DRO</property>
                                           </packing>
                                         </child>
                                         <child>
-                                          <object class="GtkLabel" id="label25">
-                                            <property name="visible">True</property>
-                                            <property name="can_focus">False</property>
-                                            <property name="xalign">0</property>
-                                            <property name="label" translatable="yes">Warning Audio</property>
-                                          </object>
-                                          <packing>
-                                            <property name="top_attach">2</property>
-                                            <property name="bottom_attach">3</property>
-                                            <property name="x_options">GTK_SHRINK | GTK_FILL</property>
-                                            <property name="y_options">GTK_SHRINK</property>
-                                          </packing>
+                                          <placeholder/>
                                         </child>
                                         <child>
-                                          <object class="GtkLabel" id="label27">
-                                            <property name="visible">True</property>
-                                            <property name="can_focus">False</property>
-                                            <property name="xalign">0</property>
-                                            <property name="label" translatable="yes">Alert Audio</property>
-                                          </object>
-                                          <packing>
-                                            <property name="top_attach">3</property>
-                                            <property name="bottom_attach">4</property>
-                                            <property name="x_options">GTK_SHRINK | GTK_FILL</property>
-                                            <property name="y_options">GTK_SHRINK</property>
-                                          </packing>
+                                          <placeholder/>
                                         </child>
                                         <child>
-                                          <object class="GtkFileChooserButton" id="audio_error_chooser">
-                                            <property name="visible">True</property>
-                                            <property name="can_focus">False</property>
-                                            <signal name="file-set" handler="on_change_sound" swapped="no"/>
-                                          </object>
-                                          <packing>
-                                            <property name="left_attach">1</property>
-                                            <property name="right_attach">2</property>
-                                            <property name="top_attach">2</property>
-                                            <property name="bottom_attach">3</property>
-                                            <property name="x_options">GTK_SHRINK | GTK_FILL</property>
-                                            <property name="y_options">GTK_SHRINK</property>
-                                          </packing>
+                                          <placeholder/>
                                         </child>
                                         <child>
-                                          <object class="GtkFileChooserButton" id="audio_alert_chooser">
-                                            <property name="visible">True</property>
-                                            <property name="can_focus">False</property>
-                                            <signal name="file-set" handler="on_change_sound" swapped="no"/>
-                                          </object>
-                                          <packing>
-                                            <property name="left_attach">1</property>
-                                            <property name="right_attach">2</property>
-                                            <property name="top_attach">3</property>
-                                            <property name="bottom_attach">4</property>
-                                            <property name="x_options">GTK_SHRINK | GTK_FILL</property>
-                                            <property name="y_options">GTK_SHRINK</property>
-                                          </packing>
+                                          <placeholder/>
                                         </child>
                                       </object>
                                     </child>
@@ -4252,7 +4206,7 @@ clicking on the DRO</property>
                                   <object class="GtkLabel" id="lbl_frm_themes">
                                     <property name="visible">True</property>
                                     <property name="can_focus">False</property>
-                                    <property name="label" translatable="yes">&lt;b&gt;Themes and sound&lt;/b&gt;</property>
+                                    <property name="label" translatable="yes">&lt;b&gt;Themes&lt;/b&gt;</property>
                                     <property name="use_markup">True</property>
                                   </object>
                                 </child>

@@ -1,3 +1,14 @@
+ver. 0.9.5
+- all audio stuff removed to avoid additional error possibuilities
+- added print statements to dialogs
+- tons of debug code in FastSeal.py
+
+ver. 0.9.4
+- forgot to change to teleop mode prior to jog
+
+ver. 0.9.3
+- widgetlist in sensitize widgets did contain an not used widget, leading to an error
+
 ver. 0.9.2
 -still an error with player, as I forgot to set _AUDIO_AVAILABLE from
  global to self
