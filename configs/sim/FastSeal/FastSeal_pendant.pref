@@ -74,4 +74,5 @@ show_dtg = False
 scale_jog_vel = 1000.0
 view = p
 spc_jog_vel = 99.6
+open_file = 
 
