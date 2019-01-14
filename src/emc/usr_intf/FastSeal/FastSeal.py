@@ -75,7 +75,7 @@ sys.excepthook = excepthook
 
 # constants
 #         # FastSeal  #"
-_RELEASE = "  0.9.5"
+_RELEASE = "  0.9.5.1"
 _INCH = 0                         # imperial units are active
 _MM = 1                           # metric units are active
 _TEMPDIR = tempfile.gettempdir()  # Now we know where the tempdir is, usualy /tmp
@@ -163,7 +163,6 @@ class FastSeal( object ):
 
         self.spindle_override = 1  # holds the feed override value and is needed to be able to react to halui pin
         self.feed_override = 1     # holds the spindle override value and is needed to be able to react to halui pin
-#        self.rapidrate = 1         # holds the rapid override value and is needed to be able to react to halui pin
 
         self.incr_rbt_list = []    # we use this list to add hal pin to the button later
         self.jog_increments = []   # This holds the increment values
@@ -191,6 +190,8 @@ class FastSeal( object ):
 
         self.gcodeerror = ""  # we need this to avoid multile messages of the same error
 
+        self.turtle_jog_factor = 1.0
+
         # the default theme = System Theme we store here to be able to go back to that one later
         self.default_theme = gtk.settings_get_default().get_property( "gtk-theme-name" )
 
@@ -212,8 +213,6 @@ class FastSeal( object ):
         self.widgets.lbl_version.set_label( "<b>FastSeal\n%s</b>" % _RELEASE )
 
         panel = gladevcp.makepins.GladePanel( self.halcomp, XMLNAME, self.builder, None )
-
-        self.halcomp.ready()
 
         # this are settings to be done before window show
         self._init_preferences()
@@ -571,6 +570,9 @@ class FastSeal( object ):
         # this must be done last, otherwise we will get wrong values
         # because the window is not fully realized
         self.init_notification()
+
+        self.halcomp.ready()
+
 
         # since the main loop is needed to handle the UI and its events, blocking calls like sleep()
         # will block the UI as well, so everything goes through event handlers (aka callbacks)
@@ -2484,8 +2486,10 @@ class FastSeal( object ):
         # we take care of that but we have to check for speed override 
         # to not be zero to avoid division by zero error
         try:
-            rpm_out = rpm / self.stat.spindle[0]['override']
+            if self.stat.spindle[0]['override'] != 0:
+                rpm_out = rpm / self.stat.spindle[0]['override']
         except:
+            print("Exception from _set_spindle, overide = 0")
             rpm_out = 0
         self.widgets.lbl_spindle_act.set_label("S {0}".format(int(rpm)))
 
@@ -2543,6 +2547,7 @@ class FastSeal( object ):
                 value_to_set = spindle_override * 100
             self.command.spindleoverride( value_to_set / 100 )
         except:
+            print("Exception from adj spindle value changed")
             pass
         self.widgets.lbl_spindle_act.set_text( "S %d" % real_spindle_speed )
 
@@ -3220,7 +3225,7 @@ class FastSeal( object ):
     def _on_reload_preview_changed(self, pin):
         print(strftime( "%H:%M:%S" ) + "FastSeal  - _on_reload_preview_changed", pin)
         if pin.get():
-            self.widgets.hal_action_reload.emit( "activate" )
+            self.widgets.hal_action_reload.emit("activate")
 
     def on_btn_load_clicked( self, widget, data = None ):
         print(strftime( "%H:%M:%S" ) + "FastSeal  - on_btn_load_clicked", widget, data)
@@ -3486,6 +3491,7 @@ class FastSeal( object ):
         try:  # otherwise a value of 0.0 would give an error
             value = self.widgets[widget].lower + ( range * percentage )
         except:
+            print("Exception from analog value changed")
             value = 0
         self.widgets[widget].set_value( value )
 
