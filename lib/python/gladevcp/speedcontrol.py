@@ -184,7 +184,10 @@ class SpeedControl(gtk.VBox, _HalSpeedControlBase):
 
         # fill the rectangle with selected color
         # first get the width of the area to fill
-        percentage = (self._value - self._min) * 100 / (self._max - self._min)
+        if self._max - self._min != 0:
+            percentage = (self._value - self._min) * 100 / (self._max - self._min)
+        else:
+            percentage = 100
         width_to_fill = w * percentage / 100
         r, g, b = self.get_color_tuple(self.color)
         self.cr.set_source_rgb(r, g, b)

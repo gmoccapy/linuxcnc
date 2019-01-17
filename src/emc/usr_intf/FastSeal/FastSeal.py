@@ -600,15 +600,11 @@ class FastSeal( object ):
         self.spindle_override_min = self.get_ini_info.get_min_spindle_override()
         self.feed_override_max = self.get_ini_info.get_max_feed_override()
         self.dro_actual = self.get_ini_info.get_position_feedback_actual()
- 
-        # set the slider limmits
-        self.widgets.adj_max_vel.configure( self.stat.max_velocity * 60, 0.0,
-                                           self.stat.max_velocity * 60, 1, 0, 0 )
-        self.widgets.adj_jog_vel.configure( self.jog_rate, 0,
-                                           self.jog_rate_max, 1, 0, 0 )
-        self.widgets.adj_spindle.configure( 100, self.spindle_override_min * 100,
-                                           self.spindle_override_max * 100, 1, 0, 0 )
-        self.widgets.adj_feed.configure( 100, 0, self.feed_override_max * 100, 1, 0, 0 )
+
+        # holds the max velocity value and is needed to be able to react to halui pin
+        self.max_velocity = self.stat.max_velocity
+
+        print(strftime( "%H:%M:%S" ) + " - FastSeal  - _init_preferences", self.max_velocity, self.stat.max_velocity)
  
         # set the adjustment to the speed controls
         self.widgets.spc_jog_vel.set_adjustment(self.widgets.adj_jog_vel)
@@ -616,15 +612,47 @@ class FastSeal( object ):
         self.widgets.spc_feed.set_adjustment(self.widgets.adj_feed)
         self.widgets.spc_spindle.set_adjustment(self.widgets.adj_spindle)
          
+        self.widgets.spc_jog_vel.set_adjustment(self.widgets.adj_jog_vel)
+        self.widgets.spc_max_vel.set_adjustment(self.widgets.adj_max_vel)
+        self.widgets.spc_feed.set_adjustment(self.widgets.adj_feed)
+        self.widgets.spc_spindle.set_adjustment(self.widgets.adj_spindle)
+
+        # get the values for the sliders
+        default_jog_vel = self.get_ini_info.get_jog_vel()
+        self.jog_rate_max = self.get_ini_info.get_max_jog_vel()
+        self.spindle_override_max = self.get_ini_info.get_max_spindle_override()
+        self.spindle_override_min = self.get_ini_info.get_min_spindle_override()
+        self.feed_override_max = self.get_ini_info.get_max_feed_override()
+#        self.rapid_override_max = self.get_ini_info.get_max_rapid_override()
+        self.dro_actual = self.get_ini_info.get_position_feedback_actual()
+
+        # set the slider limits
+        self.widgets.spc_jog_vel.set_property("min", 0)
+        self.widgets.spc_jog_vel.set_property("max", self.jog_rate_max)
+        self.widgets.spc_jog_vel.set_value(default_jog_vel)
+
+        self.widgets.spc_spindle.set_property("min", self.spindle_override_min * 100)
+        self.widgets.spc_spindle.set_property("max", self.spindle_override_max * 100)
+        self.widgets.spc_spindle.set_value(100)
+
+#        self.widgets.spc_rapid.set_property("min", 0)
+#        self.widgets.spc_rapid.set_property("max", self.rapid_override_max * 100)
+#        self.widgets.spc_rapid.set_value(100)
+
+        self.widgets.spc_feed.set_property("min", 0)
+        self.widgets.spc_feed.set_property("max", self.feed_override_max * 100)
+        self.widgets.spc_feed.set_value(100)
+
+        self.widgets.spc_max_vel.set_property("min", 0)
+        self.widgets.spc_max_vel.set_property("max", self.max_velocity * 60)
+        self.widgets.spc_max_vel.set_value(self.max_velocity * 60)
+
         # and hide the button, as we do not need them
         #self.widgets.spc_jog_vel.hide_button(True)
         #self.widgets.spc_max_vel.hide_button(True)
         #self.widgets.spc_feed.hide_button(True)
         #self.widgets.spc_spindle.hide_button(True)        
- 
-        # holds the max velocity value and is needed to be able to react to halui pin
-        self.max_velocity = self.maxvel = self.stat.max_velocity
- 
+  
         # set and get all information for turtle jogging
         self.rabbit_jog = self.jog_rate
         hide_turtle_jog_button = self.prefs.getpref( "hide_turtle_jog_button", False, bool )
@@ -779,7 +807,6 @@ class FastSeal( object ):
         self.widgets.tooledit1.set_filename( toolfile )
 
     def _init_themes( self ):
-        print(strftime( "%H:%M:%S" ) + "FastSeal  - _init_themes", self)
         # If there are themes then add them to combo box
         model = self.widgets.theme_choice.get_model()
         model.clear()
@@ -2381,10 +2408,8 @@ class FastSeal( object ):
         # we take care of that but we have to check for speed override 
         # to not be zero to avoid division by zero error
         try:
-            if self.stat.spindle[0]['override'] != 0:
-                rpm_out = rpm / self.stat.spindle[0]['override']
+            rpm_out = rpm / self.stat.spindle[0]['override']
         except:
-            print("Exception from _set_spindle, overide = 0")
             rpm_out = 0
         self.widgets.lbl_spindle_act.set_label("S {0}".format(int(rpm)))
 
@@ -2412,33 +2437,66 @@ class FastSeal( object ):
             real_spindle_speed = self.min_spindle_rev
         return real_spindle_speed
 
+    def on_spc_spindle_value_changed(self, widget, data=None):
+        if not self.initialized:
+            return
+        # this is in a try except, because on initializing the window the values are still zero
+        # so we would get an division / zero error
+        real_spindle_speed = 0
+        value = widget.get_value()
+        try:
+            if not abs(self.stat.settings[2]):
+                if self.widgets.rbt_forward.get_active() or self.widgets.rbt_reverse.get_active():
+                    speed = self.stat.spindle[0]['speed']
+                else:
+                    speed = 0
+            else:
+                speed = abs(self.stat.spindle[0]['speed'])
+            spindle_override = value / 100
+            real_spindle_speed = speed * spindle_override
+            if real_spindle_speed > self.max_spindle_rev:
+                value_to_set = value / (real_spindle_speed / self.max_spindle_rev)
+                real_spindle_speed = self.max_spindle_rev
+            elif real_spindle_speed < self.min_spindle_rev:
+                value_to_set = value / (real_spindle_speed / self.min_spindle_rev)
+                real_spindle_speed = self.min_spindle_rev
+            else:
+                value_to_set = spindle_override * 100
+            widget.set_value(value_to_set)
+            self.spindle_override = value_to_set / 100
+            self.command.spindleoverride(value_to_set / 100)
+        except:
+            pass
+
+
     def on_adj_spindle_value_changed( self, widget, data = None ):
         if not self.initialized:
             return
         # this is in a try except, because on initializing the window the values are still zero
         # so we would get an division / zero error
         real_spindle_speed = 0
+        value = widget.get_value()
         try:
-            if not abs( self.stat.settings[2] ):
+            if not abs(self.stat.settings[2]):
                 if self.widgets.rbt_forward.get_active() or self.widgets.rbt_reverse.get_active():
-                    speed = self.stat.spindle_speed
+                    speed = self.stat.spindle[0]['speed']
                 else:
                     speed = 0
             else:
-                speed = abs( self.stat.spindle_speed )
-            spindle_override = widget.get_value() / 100
+                speed = abs(self.stat.spindle[0]['speed'])
+            spindle_override = value / 100
             real_spindle_speed = speed * spindle_override
             if real_spindle_speed > self.max_spindle_rev:
-                value_to_set = widget.get_value() / ( real_spindle_speed / self.max_spindle_rev )
-                widget.set_value( value_to_set )
+                value_to_set = value / (real_spindle_speed / self.max_spindle_rev)
                 real_spindle_speed = self.max_spindle_rev
             elif real_spindle_speed < self.min_spindle_rev:
-                value_to_set = widget.get_value() / ( real_spindle_speed / self.min_spindle_rev )
-                widget.set_value( value_to_set )
+                value_to_set = value / (real_spindle_speed / self.min_spindle_rev)
                 real_spindle_speed = self.min_spindle_rev
             else:
                 value_to_set = spindle_override * 100
-            self.command.spindleoverride( value_to_set / 100 )
+            widget.set_value(value_to_set)
+            self.spindle_override = value_to_set / 100
+            self.command.spindleoverride(value_to_set / 100)
         except:
             print("Exception from adj spindle value changed")
             pass
