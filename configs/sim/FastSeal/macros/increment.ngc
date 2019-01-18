@@ -12,10 +12,10 @@ G49
 G80
 G90
 
-G91 G0 X#1 Y#2
+G91 G0 X#1 Z#2
 G90
 
-(DEBUG, X was [#1] and Y was [#2])
+(DEBUG, X was [#1] and Z was [#2])
 
 O<increment> endsub
 

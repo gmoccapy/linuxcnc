@@ -72,7 +72,7 @@ sys.excepthook = excepthook
 
 # constants
 #         # FastSeal  #"
-_RELEASE = "  0.9.6"
+_RELEASE = "  0.9.7"
 _INCH = 0                         # imperial units are active
 _MM = 1                           # metric units are active
 _TEMPDIR = tempfile.gettempdir()  # Now we know where the tempdir is, usualy /tmp
@@ -1755,6 +1755,8 @@ class FastSeal( object ):
     # check if macros are in the INI file and add them to MDI Button List
     def _add_macro_button( self ):
         macros = self.get_ini_info.get_macros()
+        if not macros:
+            return
         num_macros = len( macros )
         if num_macros > 9:
             message = _( "**** FASTSEAL INFO ****" )
