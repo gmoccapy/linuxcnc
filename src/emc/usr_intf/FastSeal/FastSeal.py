@@ -72,7 +72,7 @@ sys.excepthook = excepthook
 
 # constants
 #         # FastSeal  #"
-_RELEASE = "  0.9.7"
+_RELEASE = "  0.9.7.1"
 _INCH = 0                         # imperial units are active
 _MM = 1                           # metric units are active
 _TEMPDIR = tempfile.gettempdir()  # Now we know where the tempdir is, usualy /tmp
@@ -647,6 +647,8 @@ class FastSeal( object ):
         self.widgets.spc_max_vel.set_property("max", self.max_velocity * 60)
         self.widgets.spc_max_vel.set_value(self.max_velocity * 60)
 
+        print(strftime( "%H:%M:%S" ) + " - FastSeal  - _init_preferences 2", self.max_velocity, self.stat.max_velocity)
+
         # and hide the button, as we do not need them
         #self.widgets.spc_jog_vel.hide_button(True)
         #self.widgets.spc_max_vel.hide_button(True)
@@ -1204,9 +1206,6 @@ class FastSeal( object ):
                       "btn_tool_touchoff_x", "btn_tool_touchoff_z", "btn_touch"
         ]
         self._sensitize_widgets( widgetlist, False )
-
-    def on_hal_status_homed( self, widget, data ):
-        print(strftime( "%H:%M:%S" ) + "FastSeal  - on_hal_status_homeded", widget, data)
 
     def on_hal_status_file_loaded( self, widget, filename ):
         widgetlist = ["btn_use_current" ]
@@ -1887,6 +1886,52 @@ class FastSeal( object ):
             self.max_velocity = self.stat.max_velocity
             self.initialized = True
 
+#        print(strftime( "%H:%M:%S" ) + " - FastSeal  - _update_halui_pin", self.max_velocity, self.stat.max_velocity)
+
+
+    def on_Combi_DRO_units_changed(self, widget, metric_units):
+
+        # set gremlin_units
+        self.widgets.gremlin.set_property("metric_units", metric_units)
+
+        widgetlist = ["adj_jog_vel", "adj_max_vel"]
+
+        # self.stat.linear_units will return 1.0 for metric and 1/25,4 for imperial
+        # display units not equal machine units
+        if metric_units != int(self.stat.linear_units):
+            # machine units = metric
+            if self.stat.linear_units == _MM:
+                self.faktor = (1.0 / 25.4)
+            # machine units = imperial
+            else:
+                self.faktor = 25.4
+            self.turtle_jog = self.turtle_jog * self.faktor
+            self.rabbit_jog = self.rabbit_jog * self.faktor
+            self._update_slider( widgetlist )
+
+        else:
+            # display units equal machine units would be factor = 1,
+            # but if factor not equal 1.0 than we have to reconvert from previous first
+            self.turtle_jog = self.turtle_jog / self.faktor
+            self.rabbit_jog = self.rabbit_jog / self.faktor
+            if self.faktor != 1.0:
+                self.faktor = 1 / self.faktor
+                self._update_slider(widgetlist)
+                self.faktor = 1.0
+                self._update_slider(widgetlist)
+
+        if metric_units:
+            self.widgets.spc_jog_vel.set_digits(0)
+            self.widgets.spc_jog_vel.set_property("unit", _("mm/min"))
+            self.widgets.spc_max_vel.set_digits(0)
+            self.widgets.spc_max_vel.set_property("unit", _("mm/min"))
+        else:
+            self.widgets.spc_jog_vel.set_digits(2)
+            self.widgets.spc_jog_vel.set_property("unit", _("inch/min"))
+            self.widgets.spc_max_vel.set_digits(2)
+            self.widgets.spc_max_vel.set_property("unit", _("inch/min"))
+
+
     def _update_slider( self, widgetlist ):
         # update scales and sliders
         for widget in widgetlist:
@@ -1899,6 +1944,8 @@ class FastSeal( object ):
         self.scale_jog_vel = self.scale_jog_vel * self.faktor
         self.scale_max_vel = self.scale_max_vel * self.faktor
         self.on_adj_max_vel_value_changed( self.widgets.adj_max_vel )
+
+        print(strftime( "%H:%M:%S" ) + " - FastSeal  - _update_slider", self.max_velocity, self.stat.max_velocity)
 
     def _change_dro_color( self, property, color ):
         for axis in self.axis_list:
@@ -2520,17 +2567,21 @@ class FastSeal( object ):
 
 # =========================================================
 # feed stuff
-    def on_adj_feed_value_changed( self, widget, data = None ):
+    def on_adj_feed_value_changed( self, widget):
         if not self.initialized:
             return
         self.command.feedrate( widget.get_value() / 100 )
         self.widgets.adj_max_vel.set_value( float( self.widgets.adj_max_vel.upper * widget.get_value() / 100 ) )
 
-    def on_adj_max_vel_value_changed( self, widget, data = None ):
+        print(strftime( "%H:%M:%S" ) + " - FastSeal  - on_adj_feed_value_changed", self.max_velocity, self.stat.max_velocity)
+
+    def on_adj_max_vel_value_changed( self, widget):
         if not self.initialized:
             return
         value = widget.get_value() / 60
         self.command.maxvel( value * ( 1 / self.faktor ) )
+
+        print(strftime( "%H:%M:%S" ) + " - FastSeal  - on_adj_max_vel_value_changed", self.max_velocity, self.stat.max_velocity)
 
     # this are the MDI thinks we need
     def on_btn_delete_clicked( self, widget, data = None ):
