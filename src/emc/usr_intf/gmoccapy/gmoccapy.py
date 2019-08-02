@@ -379,7 +379,6 @@ class gmoccapy(object):
         self.widgets.tbtn_fullsize_preview1.modify_bg(gtk.STATE_ACTIVE, gtk.gdk.color_parse("#FFFF00"))
         self.widgets.tbtn_mist.modify_bg(gtk.STATE_ACTIVE, gtk.gdk.color_parse("#00FF00"))
         self.widgets.tbtn_optional_blocks.modify_bg(gtk.STATE_ACTIVE, gtk.gdk.color_parse("#FFFF00"))
-        self.widgets.tbtn_optional_stops.modify_bg(gtk.STATE_ACTIVE, gtk.gdk.color_parse("#FFFF00"))
         self.widgets.tbtn_user_tabs.modify_bg(gtk.STATE_ACTIVE, gtk.gdk.color_parse("#FFFF00"))
         self.widgets.tbtn_view_dimension.modify_bg(gtk.STATE_ACTIVE, gtk.gdk.color_parse("#FFFF00"))
         self.widgets.tbtn_view_tool_path.modify_bg(gtk.STATE_ACTIVE, gtk.gdk.color_parse("#FFFF00"))
@@ -396,9 +395,9 @@ class gmoccapy(object):
         self.widgets.tbtn_optional_blocks.set_active(opt_blocks)
         self.command.set_block_delete(opt_blocks)
         
-        optional_stops = self.prefs.getpref( "opstop", False, bool )
-        self.widgets.tbtn_optional_stops.set_active( optional_stops )
-        self.command.set_optional_stop( optional_stops )
+        #optional_stops = self.prefs.getpref( "opstop", False, bool )
+        #self.widgets.tbtn_optional_stops.set_active( optional_stops )
+        #self.command.set_optional_stop( optional_stops )
 
         self.widgets.chk_show_dro.set_active(self.prefs.getpref("enable_dro", False, bool))
         self.widgets.chk_show_offsets.set_active(self.prefs.getpref("show_offsets", False, bool))
@@ -1052,7 +1051,11 @@ class gmoccapy(object):
         JOGMODE = self._get_jog_mode()
 
         if self.distance <> 0:  # incremental jogging
-            self.command.jog(linuxcnc.JOG_INCREMENT, JOGMODE, joint_axis_number, dir * velocity, self.distance)
+            if self.lathe_mode and self.diameter_mode:
+                distance = self.distance/2
+            else:
+                distance = self.distance
+            self.command.jog(linuxcnc.JOG_INCREMENT, JOGMODE, joint_axis_number, dir * velocity, distance)
         else:  # continuous jogging
             self.command.jog(linuxcnc.JOG_CONTINUOUS, JOGMODE, joint_axis_number, dir * velocity)
 
@@ -1251,6 +1254,7 @@ class gmoccapy(object):
         dro.show()
 
         dro.connect("clicked", self._on_DRO_clicked)
+        dro.connect('axis_clicked', self._on_DRO_axis_clicked)
         self.dro_dic[dro.name] = dro
 
         self.dro_dic["Combi_DRO_0"].change_axisletter("R")
@@ -1260,6 +1264,7 @@ class gmoccapy(object):
         self.widgets.rbt_view_x.hide()
         self.widgets.rbt_view_z.hide()
         self.widgets.lbl_hide_tto_x.hide()
+        self.widgets.lbl_blockheight.hide()
 
         # but we have to show this one
         self.widgets.rbt_view_y2.show()
@@ -3284,7 +3289,8 @@ class gmoccapy(object):
 
     def _on_DRO_axis_clicked(self, widget, axisletter):
         print("DRO Axisletter has been clicked", axisletter)
-           # should be named touch_x, touch_y etc.
+        if axisletter == "r" or axisletter == "d":
+            axisletter = "x"
         self._on_btn_set_value_clicked(None, data=axisletter)
 
     def _offset_changed(self, pin, tooloffset):
@@ -3641,6 +3647,7 @@ class gmoccapy(object):
                 diameter = self.halcomp["tool-diameter"]
             else:
                 diameter = int(self.dro_dic["Combi_DRO_0"].get_position()[1] * 2)
+                speed = self.widgets.spindle_feedback_bar.value
             vc = abs(int(speed * self.spindle_override) * diameter * 3.14 / 1000)
         else:
             vc = 0
@@ -4657,10 +4664,10 @@ class gmoccapy(object):
         self.prefs.putpref("blockdel", opt_blocks)
         self.widgets.hal_action_reload.emit("activate")
 
-    def on_tbtn_optional_stops_toggled(self, widget, data=None):
-        opt_stops = widget.get_active()
-        self.command.set_optional_stop(opt_stops)
-        self.prefs.putpref("opstop", opt_stops)
+    #def on_tbtn_optional_stops_toggled(self, widget, data=None):
+    #    opt_stops = widget.get_active()
+    #    self.command.set_optional_stop(opt_stops)
+    #    self.prefs.putpref("opstop", opt_stops)
 
     # this can not be done with the status widget,
     # because it will not emit a RESUME signal
@@ -4902,6 +4909,8 @@ class gmoccapy(object):
             
     def _on_blockheight_value_changed(self, pin):
         self.widgets.lbl_blockheight.set_text("blockheight = {0:.3f}".format(pin.get()))
+        if self.lathe_mode:
+            self.widgets.lbl_blockheight.hide()
 
 # =========================================================
 # The actions of the buttons

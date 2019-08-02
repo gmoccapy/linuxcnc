@@ -1,0 +1,3 @@
+net test gladevcp.cycle-start touchy.cycle-start
+#loadusr sim_pin test
+

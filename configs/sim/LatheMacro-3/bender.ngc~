@@ -1,0 +1,7 @@
+O<bender> sub
+    (debug, #1 #2 #3)
+    F100
+    G1 Z#2
+    G1 A#1
+    G1 C#3
+O<bender> endsub

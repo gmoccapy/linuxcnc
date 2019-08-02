@@ -1,0 +1,18 @@
+loadrt comp count=2
+addf comp.0 servo-thread
+addf comp.1 servo-thread
+
+loadrt or2 count=1
+
+setp comp.0.in0 1
+setp comp.1.in0 -2
+
+net Xpos => comp.0.in1
+net Zpos => comp.1.in1
+
+setp comp.0.hyst .02
+setp comp.1.hyst .02
+
+net Xhomesw <= comp.0.out joint.0.home-sw-in
+net Zhomesw <= comp.1.out joint.1.home-sw-in
+
