@@ -89,7 +89,7 @@ if debug:
 
 # constants
 #         # gmoccapy  #"
-_RELEASE = " 3.0.5"
+_RELEASE = " 3.0.6"
 _INCH = 0                         # imperial units are active
 _MM = 1                           # metric units are active
 
@@ -1905,10 +1905,11 @@ class gmoccapy(object):
                 self._no_virt_keyboard()
                 return
             sid = self.onboard_kb.stdout.readline()
-            socket = gtk.Socket()
-            self.widgets.key_box.add(socket)
-            socket.add_id(long(sid))
-            socket.show()
+            self.socket = gtk.Socket()
+            self.widgets.key_box.add(self.socket)
+            self.socket.add_id(long(sid))
+            self.socket.show_all()
+            self.widgets.key_box.show_all()
             self.onboard = True
         except Exception, e:
             print (_("**** GMOCCAPY ERROR ****"))
@@ -1916,6 +1917,7 @@ class gmoccapy(object):
             print (_("**** is onboard or matchbox-keyboard installed? ****"))
             traceback.print_exc()
             self._no_virt_keyboard()
+
 
         # get when the keyboard should be shown
         # and set the corresponding button active
@@ -1932,12 +1934,7 @@ class gmoccapy(object):
             self.widgets.chk_use_kb_on_file_selection.set_active(self.prefs.getpref("show_keyboard_on_file_selection",
                                                                                     False, bool))
         else:
-            self.widgets.chk_use_kb_on_offset.set_active(False)
-            self.widgets.chk_use_kb_on_tooledit.set_active(False)
-            self.widgets.chk_use_kb_on_edit.set_active(False)
-            self.widgets.chk_use_kb_on_mdi.set_active(False)
-            self.widgets.chk_use_kb_on_file_selection.set_active(False)
-            self.widgets.frm_keyboard.set_sensitive(False) 
+            self._no_virt_keyboard()
 
     def _no_virt_keyboard(self):
         # In this case we will disable the corresponding part on the settings page
@@ -1949,7 +1946,6 @@ class gmoccapy(object):
         self.widgets.frm_keyboard.set_sensitive(False)
         self._change_kbd_image("stop")
         self.macro_dic["keyboard"].set_sensitive(False)
-        #self.widgets.btn_show_kbd.set_image(self.widgets.img_brake_macro)
         self.macro_dic["keyboard"].set_property("tooltip-text", _("interrupt running macro"))
         self.widgets.btn_keyb.set_sensitive(False)
 
@@ -3869,11 +3865,11 @@ class gmoccapy(object):
             self.widgets.window2.hide()
 
     def on_btn_show_kbd_clicked(self, widget):
-        print("show Keyboard clicked")
-        print(widget)
-        print(widget.name)
-        print(widget.get_children()[0])
-        print(widget.get_children()[0].get_property("file"))
+        #print("show Keyboard clicked", self.widgets.key_box.get_children())
+        #print(widget)
+        #print(widget.name)
+        #print(widget.get_children()[0])
+        #print(widget.get_children()[0].get_property("file"))
 
         # special case if we are in mdi mode
         if self.widgets.ntb_button.get_current_page() == _BB_MDI and self.stat.interp_state != linuxcnc.INTERP_IDLE:
@@ -3883,6 +3879,7 @@ class gmoccapy(object):
                 self.macro_dic[pos].set_sensitive(True)
             if self.onboard:
                 self._change_kbd_image("keyboard")
+                #self.socket.show_all()  # This is needed, because after a rezise the keyboard is not visible for unknown reasons
             else:
                 self.macro_dic["keyboard"].set_sensitive(False)
         elif self.widgets.ntb_info.get_current_page() == 1:

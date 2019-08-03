@@ -167,7 +167,6 @@
     <signal name="interp-idle" handler="on_hal_status_interp_idle" swapped="no"/>
     <signal name="state-off" handler="on_hal_status_state_off" swapped="no"/>
     <signal name="motion-mode-changed" handler="on_hal_status_motion_mode_changed" swapped="no"/>
-    <signal name="user-system-changed" handler="on_hal_status_user_system_changed" swapped="no"/>
     <signal name="interp-run" handler="on_hal_status_interp_run" swapped="no"/>
     <signal name="metric-mode-changed" handler="on_hal_status_metric_mode_changed" swapped="no"/>
   </object>
