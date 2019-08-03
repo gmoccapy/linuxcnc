@@ -15,7 +15,7 @@ O10 ENDIF
 #14 = [#<_x> * 2] (starting X)
 #13 = #<_z> (starting Z)
 
-G96 D1500 S#2 ; Constant Surface Speed Mode
+G96 D2400 S#2 ; Constant Surface Speed Mode
 M3
 g95 F#4 ; Feed-Per-Rev Mode
 

@@ -70,8 +70,8 @@ dro_digits = 3
 toggle_readout = True
 tool_in_spindle = 1
 diameter offset_axis_x = 0
-offset_axis_x = 5.0
-offset_axis_z = 50.0
+offset_axis_x = 0.0
+offset_axis_z = 0.0
 offset_axis_r = 50.0
 radius offset_axis_x = 0
 

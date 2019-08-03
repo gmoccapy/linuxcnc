@@ -4,7 +4,7 @@
 	signature = 10614b72d8945308102d29d38e799e8fa8b30189
 [vars]
 [widgets]
-	turn.sf = 200.0
+	turn.sf = 500.0
 	thread.pitch = 4.0
 	turn.tool = 1.0
 	turn.angle = 0.0
@@ -23,7 +23,7 @@
 	bore.feed = 0.25
 	thread.internal = False
 	bore.tool = 0.0
-	thread.sf = 200.0
+	thread.sf = 500.0
 	turn.rad = 0.0
 	bore.sf = 0.0
 	turn.x = 25.0
@@ -50,4 +50,4 @@
 	bore.rad = 0.0
 	thread.external = True
 	radius.fi = False
-# last update  by gladevcp.persistence.save_state() on Fri Aug  2 21:46:39 2019 
+# last update  by gladevcp.persistence.save_state() on Sat Aug  3 11:54:53 2019 

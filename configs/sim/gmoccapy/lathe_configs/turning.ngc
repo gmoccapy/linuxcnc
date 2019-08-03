@@ -20,7 +20,7 @@ M6 T#8 G43
 #23 = [#5 + #6 - #20]
 #24 = [[#13 - #23] * TAN[#7]]
 
-G96 D1500 S#2 ; Constant Surface Speed Mode
+G96 D2400 S#2 ; Constant Surface Speed Mode
 m3 ;Start Spindle
 g95 F#4 ; Feed-Per-Rev Mode
 

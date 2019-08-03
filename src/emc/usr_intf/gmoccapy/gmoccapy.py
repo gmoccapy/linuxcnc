@@ -2891,7 +2891,11 @@ class gmoccapy(object):
                 return
 
             if (keyname == "R" or keyname == "r") and self.stat.interp_state == linuxcnc.INTERP_IDLE:
-                self.command.auto(linuxcnc.AUTO_RUN,0)
+                if event.state & gtk.gdk.CONTROL_MASK:
+                    print("R und Control gedrückt")
+                    self.widgets.hal_action_reload.emit("activate")
+                else:
+                    self.command.auto(linuxcnc.AUTO_RUN,0)
 
             if (keyname == "p" or keyname == "P") and self.widgets.tbtn_pause.get_sensitive():
                 self.command.auto(linuxcnc.AUTO_PAUSE)
