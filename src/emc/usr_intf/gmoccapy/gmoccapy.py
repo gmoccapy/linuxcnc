@@ -89,7 +89,7 @@ if debug:
 
 # constants
 #         # gmoccapy  #"
-_RELEASE = " 3.0.4"
+_RELEASE = " 3.0.5"
 _INCH = 0                         # imperial units are active
 _MM = 1                           # metric units are active
 
@@ -1947,9 +1947,10 @@ class gmoccapy(object):
         self.widgets.chk_use_kb_on_mdi.set_active(False)
         self.widgets.chk_use_kb_on_file_selection.set_active(False)
         self.widgets.frm_keyboard.set_sensitive(False)
-        self.widgets.btn_show_kbd.set_sensitive(False)
-        self.widgets.btn_show_kbd.set_image(self.widgets.img_brake_macro)
-        self.widgets.btn_show_kbd.set_property("tooltip-text", _("interrupt running macro"))
+        self._change_kbd_image("stop")
+        self.macro_dic["keyboard"].set_sensitive(False)
+        #self.widgets.btn_show_kbd.set_image(self.widgets.img_brake_macro)
+        self.macro_dic["keyboard"].set_property("tooltip-text", _("interrupt running macro"))
         self.widgets.btn_keyb.set_sensitive(False)
 
     def _kill_keyboard(self):
@@ -2391,6 +2392,7 @@ class gmoccapy(object):
             self._change_kbd_image("keyboard")
         else:
             self._change_kbd_image("stop")
+            self.macro_dic["keyboard"].set_sensitive(False)
 
         self.widgets.btn_run.set_sensitive(True)
 
@@ -2418,6 +2420,7 @@ class gmoccapy(object):
         self.widgets.btn_run.set_sensitive(False)
 
         self._change_kbd_image("stop")
+        self.macro_dic["keyboard"].set_sensitive(True)
 
     def on_hal_status_tool_in_spindle_changed(self, object, new_tool_no):
         # need to save the tool in spindle as preference, to be able to reload it on startup
@@ -2734,14 +2737,14 @@ class gmoccapy(object):
         # we change the widget_image (doen by hal status)
         # and use the button to interrupt running macros
         if not self.onboard:
-            self.widgets.btn_show_kbd.set_sensitive(True)
+            self.macro_dic["keyboard"].set_sensitive(True)
         self.widgets.ntb_info.set_current_page(0)
 
 # helpers functions start
 # =========================================================
 
     def _change_kbd_image(self, image):
-       #print(self.macro_dic)
+        #print("change keyboard image",self.macro_dic)
         if image == "stop":
             file = "stop.png"
         else:
@@ -2749,7 +2752,10 @@ class gmoccapy(object):
         filepath = os.path.join(IMAGEDIR, file)
         image = self.macro_dic["keyboard"].get_children()[0]
         image.set_from_file(filepath)
-        self.macro_dic["keyboard"].set_property("tooltip-text", _("This button will show or hide the keyboard"))
+        if self.onboard:
+            self.macro_dic["keyboard"].set_property("tooltip-text", _("This button will show or hide the keyboard"))
+        else:
+            self.macro_dic["keyboard"].set_property("tooltip-text", _("interrupt running macro"))
         self.macro_dic["keyboard"].show_all()
 
     def _update_widgets(self, state):
